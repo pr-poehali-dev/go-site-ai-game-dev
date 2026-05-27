@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "name": "Get wallet without auth",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "balance"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

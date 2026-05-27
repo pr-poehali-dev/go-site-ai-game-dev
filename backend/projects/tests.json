@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "Get portfolio (public)",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "portfolio"},
+      "expectedStatus": 200
+    }
+  ]
+}

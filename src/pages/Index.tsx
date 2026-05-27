@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import { api } from "@/lib/api";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная" },
@@ -172,6 +173,97 @@ export default function Index() {
   const [generatorStep, setGeneratorStep] = useState(0);
   const [adminTab, setAdminTab] = useState("dashboard");
 
+  // Auth
+  const [user, setUser] = useState<{ id: number; email: string; username: string; role: string } | null>(null);
+  const [authModal, setAuthModal] = useState<"login" | "register" | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Projects
+  const [userProjects, setUserProjects] = useState<Array<{
+    id: number; title: string; genre: string; engine: string;
+    status: string; progress: number; updated_at: string;
+  }>>([]);
+  const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
+
+  // Wallet
+  const [walletData, setWalletData] = useState<{
+    balance: number;
+    subscription: { plan: string; expires_at: string } | null;
+    transactions: Array<{ amount: number; description: string; created_at: string }>;
+  } | null>(null);
+
+  // Load user on mount
+  useEffect(() => {
+    const local = api.getLocalUser();
+    if (local) setUser(local);
+    if (api.isLoggedIn()) {
+      api.me().then(u => { if (u) setUser(u); });
+    }
+  }, []);
+
+  const loadProjects = useCallback(async () => {
+    if (!api.isLoggedIn()) return;
+    const projects = await api.getProjects();
+    setUserProjects(projects);
+  }, []);
+
+  const loadWallet = useCallback(async () => {
+    if (!api.isLoggedIn()) return;
+    const data = await api.getWallet();
+    if (!data.error) setWalletData(data);
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadProjects();
+      loadWallet();
+    }
+  }, [user, loadProjects, loadWallet]);
+
+  const handleAuth = async () => {
+    setAuthError("");
+    setAuthLoading(true);
+    try {
+      const data = authModal === "register"
+        ? await api.register(authEmail, authPassword, authUsername)
+        : await api.login(authEmail, authPassword);
+      if (data.error) {
+        setAuthError(data.error);
+      } else {
+        setUser(data.user);
+        setAuthModal(null);
+        setAuthEmail(""); setAuthPassword(""); setAuthUsername("");
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await api.logout();
+    setUser(null);
+    setUserProjects([]);
+    setWalletData(null);
+  };
+
+  const handleCreateProject = async () => {
+    if (!newProjectTitle.trim() || !user) return;
+    setCreatingProject(true);
+    const data = await api.createProject({ title: newProjectTitle, description: generatorInput });
+    if (data.project) {
+      setNewProjectTitle("");
+      setGeneratorInput("");
+      setGeneratorStep(0);
+      loadProjects();
+    }
+    setCreatingProject(false);
+  };
+
   const scrollTo = (id: string) => {
     setActiveSection(id);
     setMobileMenuOpen(false);
@@ -186,6 +278,95 @@ export default function Index() {
         style={{ background: "radial-gradient(circle, #00f5ff, transparent)" }} />
       <div className="fixed bottom-1/4 right-1/4 w-96 h-96 rounded-full opacity-5 blur-3xl pointer-events-none z-0"
         style={{ background: "radial-gradient(circle, #bf00ff, transparent)" }} />
+
+      {/* ═══ AUTH MODAL ═══ */}
+      {authModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setAuthModal(null); }}>
+          <div className="glass-card rounded-2xl p-8 w-full max-w-md border animate-fade-in"
+            style={{ borderColor: "rgba(0,245,255,0.25)", boxShadow: "0 0 60px rgba(0,245,255,0.08)" }}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-orbitron font-black text-lg neon-text-cyan">
+                {authModal === "login" ? "ВХОД В СИСТЕМУ" : "РЕГИСТРАЦИЯ"}
+              </h2>
+              <button onClick={() => setAuthModal(null)} className="text-white/30 hover:text-white transition-colors">
+                <Icon name="X" size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {authModal === "register" && (
+                <div>
+                  <label className="text-xs font-mono neon-text-green mb-1.5 block tracking-wider">&gt; ИМЯ ПОЛЬЗОВАТЕЛЯ</label>
+                  <input
+                    value={authUsername}
+                    onChange={e => setAuthUsername(e.target.value)}
+                    placeholder="GameDev_Pro"
+                    className="w-full bg-black/40 border rounded-lg p-3 text-sm text-white/80 placeholder-white/20 outline-none"
+                    style={{ borderColor: "rgba(0,245,255,0.2)" }}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-mono neon-text-green mb-1.5 block tracking-wider">&gt; EMAIL</label>
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={e => setAuthEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full bg-black/40 border rounded-lg p-3 text-sm text-white/80 placeholder-white/20 outline-none"
+                  style={{ borderColor: "rgba(0,245,255,0.2)" }}
+                  onKeyDown={e => e.key === "Enter" && handleAuth()}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-mono neon-text-green mb-1.5 block tracking-wider">&gt; ПАРОЛЬ</label>
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-black/40 border rounded-lg p-3 text-sm text-white/80 placeholder-white/20 outline-none"
+                  style={{ borderColor: "rgba(0,245,255,0.2)" }}
+                  onKeyDown={e => e.key === "Enter" && handleAuth()}
+                />
+              </div>
+
+              {authError && (
+                <div className="text-xs font-mono px-3 py-2 rounded border"
+                  style={{ borderColor: "rgba(255,0,0,0.3)", background: "rgba(255,0,0,0.05)", color: "#ff4444" }}>
+                  ⚠ {authError}
+                </div>
+              )}
+
+              <button onClick={handleAuth} disabled={authLoading}
+                className="w-full py-3.5 rounded-xl font-orbitron font-bold text-sm tracking-widest flex items-center justify-center gap-2 transition-all"
+                style={{ background: "rgba(0,245,255,0.15)", border: "1px solid rgba(0,245,255,0.4)", color: "#00f5ff", opacity: authLoading ? 0.6 : 1 }}>
+                {authLoading ? (
+                  <><Icon name="Loader" size={16} className="animate-spin" /> ОБРАБОТКА...</>
+                ) : (
+                  <><Icon name="LogIn" size={16} />{authModal === "login" ? "ВОЙТИ" : "СОЗДАТЬ АККАУНТ"}</>
+                )}
+              </button>
+
+              <div className="text-center text-xs text-white/30 font-mono">
+                {authModal === "login" ? (
+                  <span>Нет аккаунта?{" "}
+                    <button onClick={() => { setAuthModal("register"); setAuthError(""); }}
+                      className="neon-text-cyan hover:underline">Зарегистрироваться</button>
+                  </span>
+                ) : (
+                  <span>Уже есть аккаунт?{" "}
+                    <button onClick={() => { setAuthModal("login"); setAuthError(""); }}
+                      className="neon-text-cyan hover:underline">Войти</button>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* NAVBAR */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b"
@@ -212,13 +393,33 @@ export default function Index() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded text-xs neon-btn-cyan font-mono">
-              <Icon name="Wallet" size={14} />
-              <span>12 450 ₽</span>
-            </button>
-            <button className="neon-btn-violet px-4 py-1.5 rounded text-xs font-orbitron tracking-wider">
-              ВОЙТИ
-            </button>
+            {user ? (
+              <>
+                <button onClick={() => scrollTo("subscription")}
+                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded text-xs neon-btn-cyan font-mono">
+                  <Icon name="Wallet" size={14} />
+                  <span>{walletData ? `${walletData.balance.toLocaleString()} ₽` : "..."}</span>
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:block text-xs font-mono text-white/40">{user.username}</span>
+                  <button onClick={handleLogout}
+                    className="px-3 py-1.5 rounded text-xs font-orbitron tracking-wider text-white/40 border border-white/10 hover:border-red-500/50 hover:text-red-400 transition-all">
+                    ВЫЙТИ
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <button onClick={() => setAuthModal("login")}
+                  className="neon-btn-cyan px-4 py-1.5 rounded text-xs font-orbitron tracking-wider">
+                  ВОЙТИ
+                </button>
+                <button onClick={() => setAuthModal("register")}
+                  className="neon-btn-violet px-4 py-1.5 rounded text-xs font-orbitron tracking-wider hidden sm:block">
+                  РЕГИСТРАЦИЯ
+                </button>
+              </>
+            )}
             <button className="lg:hidden text-white/70" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               <Icon name={mobileMenuOpen ? "X" : "Menu"} size={20} />
             </button>
@@ -406,11 +607,19 @@ export default function Index() {
               )}
 
               <button
-                onClick={() => { if (generatorInput.length > 0) setGeneratorStep(p => Math.min(p + 1, 4)); }}
+                onClick={async () => {
+                  if (!generatorInput.trim()) return;
+                  if (!user) { setAuthModal("register"); return; }
+                  setGeneratorStep(p => Math.min(p + 1, 4));
+                  if (generatorStep === 3) {
+                    setNewProjectTitle(generatorInput.slice(0, 60));
+                    await handleCreateProject();
+                  }
+                }}
                 className="w-full py-4 rounded-xl font-orbitron font-bold text-sm tracking-widest flex items-center justify-center gap-3 transition-all text-white"
                 style={{ background: "linear-gradient(135deg, rgba(0,245,255,0.2), rgba(191,0,255,0.2))", border: "1px solid rgba(0,245,255,0.4)", boxShadow: "0 0 20px rgba(0,245,255,0.1)" }}>
                 <Icon name="Zap" size={18} style={{ color: "#00f5ff" }} />
-                ЗАПУСТИТЬ ИИ ГЕНЕРАЦИЮ
+                {user ? "ЗАПУСТИТЬ ИИ ГЕНЕРАЦИЮ" : "ВОЙТИ И СОЗДАТЬ ИГРУ"}
                 <Icon name="ChevronRight" size={18} />
               </button>
             </div>
@@ -457,39 +666,107 @@ export default function Index() {
               <span className="text-white/90">ЧЕРНОВЫЕ</span>{" "}
               <span style={{ color: "#ff6b00", textShadow: "0 0 20px #ff6b00" }}>ПРОЕКТЫ</span>
             </h2>
+            {!user && (
+              <p className="text-white/30 text-sm font-mono mt-2">
+                <button onClick={() => setAuthModal("register")} className="neon-text-cyan hover:underline">Зарегистрируйся</button>
+                {" "}чтобы сохранять свои игровые проекты
+              </p>
+            )}
           </div>
+
+          {/* Форма создания нового проекта (если залогинен) */}
+          {user && (
+            <div className="glass-card rounded-xl p-5 border mb-6 flex gap-3"
+              style={{ borderColor: "rgba(255,107,0,0.2)" }}>
+              <input
+                value={newProjectTitle}
+                onChange={e => setNewProjectTitle(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleCreateProject()}
+                placeholder="Название нового проекта..."
+                className="flex-1 bg-black/30 border rounded-lg px-4 py-2.5 text-sm text-white/80 placeholder-white/20 outline-none"
+                style={{ borderColor: "rgba(255,107,0,0.2)" }}
+              />
+              <button onClick={handleCreateProject} disabled={creatingProject || !newProjectTitle.trim()}
+                className="px-5 py-2.5 rounded-lg font-orbitron text-xs tracking-wider transition-all flex items-center gap-2"
+                style={{ background: "rgba(255,107,0,0.2)", border: "1px solid rgba(255,107,0,0.4)", color: "#ff6b00", opacity: creatingProject ? 0.6 : 1 }}>
+                <Icon name={creatingProject ? "Loader" : "Plus"} size={14} />
+                {creatingProject ? "..." : "СОЗДАТЬ"}
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {DRAFT_PROJECTS.map((proj) => (
-              <div key={proj.title} className="glass-card rounded-xl p-6 border card-hover"
-                style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-orbitron font-bold text-sm text-white/90">{proj.title}</h3>
-                  <span className="text-xs font-mono px-2 py-1 rounded"
-                    style={{ background: proj.color + "15", color: proj.color, border: `1px solid ${proj.color}30` }}>
-                    {proj.engine}
-                  </span>
-                </div>
-                <div className="mb-3">
-                  <div className="flex justify-between text-xs text-white/40 mb-2 font-mono">
-                    <span>Прогресс</span>
-                    <span style={{ color: proj.color }}>{proj.progress}%</span>
+            {user && userProjects.length > 0 ? (
+              userProjects.map((proj, i) => {
+                const colors = ["#bf00ff", "#00f5ff", "#00ff88", "#ff6b00", "#ff00aa"];
+                const color = colors[i % colors.length];
+                return (
+                  <div key={proj.id} className="glass-card rounded-xl p-6 border card-hover"
+                    style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-orbitron font-bold text-sm text-white/90 truncate mr-2">{proj.title}</h3>
+                      <span className="text-xs font-mono px-2 py-1 rounded flex-shrink-0"
+                        style={{ background: color + "15", color, border: `1px solid ${color}30` }}>
+                        {proj.status}
+                      </span>
+                    </div>
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs text-white/40 mb-2 font-mono">
+                        <span>Прогресс</span>
+                        <span style={{ color }}>{proj.progress}%</span>
+                      </div>
+                      <ProgressBar value={proj.progress} color={color} />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-white/30 font-mono">
+                      <span>{proj.genre || "Жанр не задан"}</span>
+                      <button className="hover:text-white transition-colors flex items-center gap-1">
+                        <Icon name="Play" size={12} /> ОТКРЫТЬ
+                      </button>
+                    </div>
                   </div>
-                  <ProgressBar value={proj.progress} color={proj.color} />
-                </div>
-                <div className="flex items-center justify-between text-xs text-white/30 font-mono">
-                  <span>{proj.lastEdit}</span>
-                  <button className="hover:text-white transition-colors flex items-center gap-1">
-                    <Icon name="Play" size={12} /> ПРОДОЛЖИТЬ
-                  </button>
-                </div>
+                );
+              })
+            ) : user ? (
+              <div className="col-span-3 text-center py-12 text-white/25 font-mono text-sm">
+                У тебя пока нет проектов — создай первый выше ↑
               </div>
-            ))}
+            ) : (
+              DRAFT_PROJECTS.map((proj) => (
+                <div key={proj.title} className="glass-card rounded-xl p-6 border card-hover"
+                  style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-orbitron font-bold text-sm text-white/90">{proj.title}</h3>
+                    <span className="text-xs font-mono px-2 py-1 rounded"
+                      style={{ background: proj.color + "15", color: proj.color, border: `1px solid ${proj.color}30` }}>
+                      {proj.engine}
+                    </span>
+                  </div>
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-white/40 mb-2 font-mono">
+                      <span>Прогресс</span>
+                      <span style={{ color: proj.color }}>{proj.progress}%</span>
+                    </div>
+                    <ProgressBar value={proj.progress} color={proj.color} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-white/30 font-mono">
+                    <span>{proj.lastEdit}</span>
+                    <button onClick={() => setAuthModal("login")} className="hover:text-white transition-colors flex items-center gap-1">
+                      <Icon name="Lock" size={12} /> ВОЙТИ
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-          <div className="mt-6 text-center">
-            <button className="neon-btn-cyan px-6 py-3 rounded-lg font-orbitron text-xs tracking-widest inline-flex items-center gap-2">
-              <Icon name="Plus" size={16} />НОВЫЙ ЧЕРНОВИК
-            </button>
-          </div>
+
+          {!user && (
+            <div className="mt-6 text-center">
+              <button onClick={() => setAuthModal("register")}
+                className="neon-btn-cyan px-6 py-3 rounded-lg font-orbitron text-xs tracking-widest inline-flex items-center gap-2">
+                <Icon name="Plus" size={16} />СОЗДАТЬ АККАУНТ И НАЧАТЬ
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -733,14 +1010,21 @@ export default function Index() {
                     </li>
                   ))}
                 </ul>
-                <button className="w-full py-3 rounded-xl font-orbitron font-bold text-sm tracking-wider transition-all"
+                <button
+                  onClick={async () => {
+                    if (!user) { setAuthModal("register"); return; }
+                    const planKey = plan.name.toLowerCase();
+                    const res = await api.subscribe(planKey);
+                    if (!res.error) { loadWallet(); setAdminTab("wallet"); scrollTo("subscription"); }
+                  }}
+                  className="w-full py-3 rounded-xl font-orbitron font-bold text-sm tracking-wider transition-all"
                   style={{
                     background: plan.popular ? plan.color : "transparent",
                     color: plan.popular ? "#000" : plan.color,
                     border: `1px solid ${plan.color}`,
                     boxShadow: plan.popular ? `0 0 20px ${plan.color}40` : "none"
                   }}>
-                  ВЫБРАТЬ ПЛАН
+                  {user ? "ВЫБРАТЬ ПЛАН" : "ВОЙТИ И ПОДПИСАТЬСЯ"}
                 </button>
               </div>
             ))}
@@ -812,44 +1096,73 @@ export default function Index() {
 
           {adminTab === "wallet" && (
             <div className="space-y-4">
-              <div className="glass-card rounded-xl p-8 border text-center"
-                style={{ borderColor: "rgba(255,107,0,0.2)", boxShadow: "0 0 30px rgba(255,107,0,0.05)" }}>
-                <div className="font-mono text-xs text-white/30 mb-2 tracking-widest">ТЕКУЩИЙ БАЛАНС</div>
-                <div className="font-orbitron font-black text-5xl mb-4"
-                  style={{ color: "#ff6b00", textShadow: "0 0 30px #ff6b00" }}>
-                  ₽ 184 290
-                </div>
-                <div className="flex gap-4 justify-center">
-                  <button className="px-6 py-2.5 rounded-lg font-orbitron text-xs tracking-wider"
+              {!user ? (
+                <div className="glass-card rounded-xl p-12 border text-center"
+                  style={{ borderColor: "rgba(255,107,0,0.2)" }}>
+                  <Icon name="Lock" size={32} style={{ color: "#ff6b00", margin: "0 auto 16px" }} />
+                  <p className="text-white/40 font-mono text-sm mb-4">Войдите, чтобы увидеть свой кошелёк</p>
+                  <button onClick={() => setAuthModal("login")}
+                    className="px-6 py-2.5 rounded-lg font-orbitron text-xs tracking-wider"
                     style={{ background: "rgba(255,107,0,0.2)", border: "1px solid rgba(255,107,0,0.4)", color: "#ff6b00" }}>
-                    ВЫВЕСТИ
-                  </button>
-                  <button className="px-6 py-2.5 rounded-lg font-orbitron text-xs tracking-wider text-white/40 border border-white/10">
-                    ИСТОРИЯ
+                    ВОЙТИ
                   </button>
                 </div>
-              </div>
-              <div className="glass-card rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                <div className="px-6 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-                  <span className="font-mono text-xs text-white/40 tracking-wider">ПОСЛЕДНИЕ ПОСТУПЛЕНИЯ</span>
-                </div>
-                {[
-                  { desc: "Подписка PRO · user_4821", amount: "+2 990", time: "5 мин назад" },
-                  { desc: "Подписка STUDIO · studio_99", amount: "+7 990", time: "12 мин назад" },
-                  { desc: "Подписка STARTER · user_7724", amount: "+990", time: "28 мин назад" },
-                ].map((tx) => (
-                  <div key={tx.desc} className="px-6 py-4 border-b flex justify-between items-center"
-                    style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                    <div>
-                      <div className="text-sm text-white/60">{tx.desc}</div>
-                      <div className="text-xs text-white/25 font-mono">{tx.time}</div>
+              ) : (
+                <>
+                  <div className="glass-card rounded-xl p-8 border text-center"
+                    style={{ borderColor: "rgba(255,107,0,0.2)", boxShadow: "0 0 30px rgba(255,107,0,0.05)" }}>
+                    <div className="font-mono text-xs text-white/30 mb-2 tracking-widest">ТЕКУЩИЙ БАЛАНС</div>
+                    <div className="font-orbitron font-black text-5xl mb-2"
+                      style={{ color: "#ff6b00", textShadow: "0 0 30px #ff6b00" }}>
+                      ₽ {walletData ? walletData.balance.toLocaleString() : "0"}
                     </div>
-                    <span className="font-orbitron font-bold text-sm neon-text-green">{tx.amount} ₽</span>
+                    {walletData?.subscription && (
+                      <div className="text-xs font-mono mb-4" style={{ color: "#bf00ff" }}>
+                        Подписка {walletData.subscription.plan.toUpperCase()} · до {new Date(walletData.subscription.expires_at).toLocaleDateString("ru")}
+                      </div>
+                    )}
+                    <div className="flex gap-4 justify-center mt-4">
+                      <button onClick={() => scrollTo("subscription")}
+                        className="px-6 py-2.5 rounded-lg font-orbitron text-xs tracking-wider"
+                        style={{ background: "rgba(255,107,0,0.2)", border: "1px solid rgba(255,107,0,0.4)", color: "#ff6b00" }}>
+                        ПОДПИСКА
+                      </button>
+                      <button onClick={loadWallet}
+                        className="px-6 py-2.5 rounded-lg font-orbitron text-xs tracking-wider text-white/40 border border-white/10 hover:border-white/30 hover:text-white/70 transition-all">
+                        ОБНОВИТЬ
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="glass-card rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <div className="px-6 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                      <span className="font-mono text-xs text-white/40 tracking-wider">ИСТОРИЯ ТРАНЗАКЦИЙ</span>
+                    </div>
+                    {walletData?.transactions && walletData.transactions.length > 0 ? walletData.transactions.map((tx, i) => (
+                      <div key={i} className="px-6 py-4 border-b flex justify-between items-center"
+                        style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                        <div>
+                          <div className="text-sm text-white/60">{tx.description}</div>
+                          <div className="text-xs text-white/25 font-mono">
+                            {new Date(tx.created_at).toLocaleString("ru")}
+                          </div>
+                        </div>
+                        <span className="font-orbitron font-bold text-sm"
+                          style={{ color: tx.amount > 0 ? "#00ff88" : "#ff6b00" }}>
+                          {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString()} ₽
+                        </span>
+                      </div>
+                    )) : (
+                      <div className="px-6 py-8 text-center text-white/25 font-mono text-xs">
+                        Транзакций пока нет
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
+
+
 
           {adminTab === "users" && (
             <div className="glass-card rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
