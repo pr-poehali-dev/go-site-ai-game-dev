@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "Get payment config",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "config"},
+      "expectedStatus": 200
+    }
+  ]
+}

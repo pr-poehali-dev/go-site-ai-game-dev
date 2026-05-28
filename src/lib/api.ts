@@ -2,6 +2,7 @@ const URLS = {
   auth: "https://functions.poehali.dev/dbe421e3-8c22-49b1-b950-72c55b2c8b30",
   projects: "https://functions.poehali.dev/64277570-8553-4968-8681-ffe7548638cf",
   wallet: "https://functions.poehali.dev/1a954e08-0583-4766-9613-d5293fdde716",
+  payment: "https://functions.poehali.dev/277bf815-881e-49d8-8edf-9d6d7d582227",
 };
 
 function getToken(): string {
@@ -115,5 +116,18 @@ export const api = {
 
   async subscribe(plan: string) {
     return call(URLS.wallet, { action: "subscribe", plan });
+  },
+
+  // PAYMENT
+  async createPayment(plan: string, gateway: string) {
+    return call(URLS.payment, { action: "create", plan, gateway });
+  },
+
+  async getPaymentConfig() {
+    return call(URLS.payment, { action: "config" });
+  },
+
+  async checkSubscription() {
+    return call(URLS.payment, { action: "check" });
   },
 };

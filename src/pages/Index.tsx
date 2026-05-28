@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import { api } from "@/lib/api";
+import DemoGame from "@/components/DemoGame";
+import PaymentModal from "@/components/PaymentModal";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная" },
   { id: "generator", label: "Генератор" },
+  { id: "demo", label: "Демо" },
   { id: "portfolio", label: "Портфолио" },
   { id: "docs", label: "Документация" },
   { id: "community", label: "Сообщество" },
@@ -173,6 +176,10 @@ export default function Index() {
   const [generatorStep, setGeneratorStep] = useState(0);
   const [adminTab, setAdminTab] = useState("dashboard");
 
+  // Payment modal
+  const [paymentModal, setPaymentModal] = useState<{ open: boolean; plan: string }>({ open: false, plan: "pro" });
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
   // Auth
   const [user, setUser] = useState<{ id: number; email: string; username: string; role: string } | null>(null);
   const [authModal, setAuthModal] = useState<"login" | "register" | null>(null);
@@ -224,6 +231,24 @@ export default function Index() {
       loadWallet();
     }
   }, [user, loadProjects, loadWallet]);
+
+  // Проверяем ?payment=success после редиректа от платёжного шлюза
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "success") {
+      setPaymentSuccess(true);
+      setAdminTab("wallet");
+      scrollTo("subscription");
+      if (user) loadWallet();
+      // Убираем параметры из URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [user]); // eslint-disable-line
+
+  const handleCreatePayment = async (plan: string, gateway: string) => {
+    if (!user) { setAuthModal("register"); return { error: "Необходима авторизация" }; }
+    return api.createPayment(plan, gateway);
+  };
 
   const handleAuth = async () => {
     setAuthError("");
@@ -278,6 +303,33 @@ export default function Index() {
         style={{ background: "radial-gradient(circle, #00f5ff, transparent)" }} />
       <div className="fixed bottom-1/4 right-1/4 w-96 h-96 rounded-full opacity-5 blur-3xl pointer-events-none z-0"
         style={{ background: "radial-gradient(circle, #bf00ff, transparent)" }} />
+
+      {/* ═══ PAYMENT MODAL ═══ */}
+      {paymentModal.open && (
+        <PaymentModal
+          paymentUrl=""
+          initialPlan={paymentModal.plan}
+          onClose={() => setPaymentModal({ open: false, plan: "pro" })}
+          onCreatePayment={handleCreatePayment}
+        />
+      )}
+
+      {/* ═══ PAYMENT SUCCESS TOAST ═══ */}
+      {paymentSuccess && (
+        <div className="fixed bottom-6 right-6 z-[300] animate-fade-in">
+          <div className="glass-card rounded-xl px-5 py-4 border flex items-center gap-3"
+            style={{ borderColor: "rgba(0,255,136,0.4)", boxShadow: "0 0 30px rgba(0,255,136,0.2)" }}>
+            <Icon name="CheckCircle" size={20} style={{ color: "#00ff88", flexShrink: 0 }} />
+            <div>
+              <div className="font-orbitron font-bold text-sm neon-text-green">Оплата прошла!</div>
+              <div className="text-xs text-white/50 font-mono">Подписка активирована</div>
+            </div>
+            <button onClick={() => setPaymentSuccess(false)} className="text-white/30 hover:text-white ml-2 transition-colors">
+              <Icon name="X" size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ═══ AUTH MODAL ═══ */}
       {authModal && (
@@ -479,10 +531,11 @@ export default function Index() {
               <Icon name="Zap" size={18} />
               СОЗДАТЬ ИГРУ — БЕСПЛАТНО
             </button>
-            <button onClick={() => scrollTo("portfolio")}
-              className="px-8 py-4 rounded text-sm tracking-wider text-white/60 border border-white/10 hover:border-white/30 hover:text-white/90 transition-all flex items-center gap-3">
-              <Icon name="Play" size={18} />
-              Смотреть демо
+            <button onClick={() => scrollTo("demo")}
+              className="px-8 py-4 rounded text-sm tracking-wider border transition-all flex items-center gap-3 font-orbitron font-bold tracking-widest"
+              style={{ borderColor: "rgba(0,255,136,0.4)", color: "#00ff88", background: "rgba(0,255,136,0.08)" }}>
+              <Icon name="Gamepad2" size={18} />
+              ИГРАТЬ ДЕМО
             </button>
           </div>
 
@@ -834,6 +887,33 @@ export default function Index() {
         </div>
       </section>
 
+      {/* ═══ ДЕМО ИГРА ═══ */}
+      <section id="demo" className="py-24 px-4 relative">
+        <div className="section-divider mb-24" />
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="font-mono text-xs neon-text-green mb-3 tracking-widest">// LIVE_DEMO</div>
+            <h2 className="font-orbitron font-black text-3xl md:text-5xl mb-4">
+              <span className="neon-text-green">ДЕМО</span>{" "}
+              <span className="text-white/90">ИГРА</span>
+            </h2>
+            <p className="text-white/40 max-w-xl mx-auto">
+              Это реальная игра, сгенерированная ИИ прямо здесь. Управление: <span className="font-mono text-white/60">← → ↑ ↓</span> для движения, <span className="font-mono text-white/60">ПРОБЕЛ</span> для стрельбы
+            </p>
+          </div>
+          <DemoGame />
+          <div className="mt-10 text-center">
+            <p className="text-white/30 text-sm font-exo mb-4">
+              Хочешь такую же, но свою — с твоими героями, механиками и стилем?
+            </p>
+            <button onClick={() => scrollTo("generator")}
+              className="neon-btn-cyan px-8 py-3.5 rounded-xl font-orbitron font-bold text-sm tracking-widest inline-flex items-center gap-2">
+              <Icon name="Wand2" size={16} />СОЗДАТЬ СВОЮ ИГРУ
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* ═══ ПОРТФОЛИО ═══ */}
       <section id="portfolio" className="py-24 px-4 relative">
         <div className="section-divider mb-24" />
@@ -863,10 +943,16 @@ export default function Index() {
                       {game.status}
                     </span>
                   </div>
-                  <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-all">
-                    <button className="text-xs font-mono flex items-center gap-1 px-3 py-1.5 rounded"
+                  <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => scrollTo("demo")}
+                      className="text-xs font-mono flex items-center gap-1 px-3 py-1.5 rounded"
                       style={{ background: game.color + "20", color: game.color, border: `1px solid ${game.color}` }}>
                       <Icon name="Play" size={12} /> ИГРАТЬ
+                    </button>
+                    <button onClick={() => { if (!user) { setAuthModal("register"); } else { setPaymentModal({ open: true, plan: "pro" }); } }}
+                      className="text-xs font-mono flex items-center gap-1 px-2 py-1.5 rounded"
+                      style={{ background: "rgba(0,0,0,0.5)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)" }}>
+                      <Icon name="Download" size={12} /> КОПИРОВАТЬ
                     </button>
                   </div>
                 </div>
@@ -1011,20 +1097,19 @@ export default function Index() {
                   ))}
                 </ul>
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     if (!user) { setAuthModal("register"); return; }
-                    const planKey = plan.name.toLowerCase();
-                    const res = await api.subscribe(planKey);
-                    if (!res.error) { loadWallet(); setAdminTab("wallet"); scrollTo("subscription"); }
+                    setPaymentModal({ open: true, plan: plan.name.toLowerCase() });
                   }}
-                  className="w-full py-3 rounded-xl font-orbitron font-bold text-sm tracking-wider transition-all"
+                  className="w-full py-3 rounded-xl font-orbitron font-bold text-sm tracking-wider transition-all flex items-center justify-center gap-2"
                   style={{
                     background: plan.popular ? plan.color : "transparent",
                     color: plan.popular ? "#000" : plan.color,
                     border: `1px solid ${plan.color}`,
                     boxShadow: plan.popular ? `0 0 20px ${plan.color}40` : "none"
                   }}>
-                  {user ? "ВЫБРАТЬ ПЛАН" : "ВОЙТИ И ПОДПИСАТЬСЯ"}
+                  <Icon name="CreditCard" size={14} />
+                  {user ? "ОПЛАТИТЬ" : "ВОЙТИ И ОПЛАТИТЬ"}
                 </button>
               </div>
             ))}
