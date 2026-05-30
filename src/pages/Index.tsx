@@ -179,6 +179,12 @@ export default function Index() {
   const [generatorGraphics, setGeneratorGraphics] = useState("");
   const [generatorRunning, setGeneratorRunning] = useState(false);
   const [generatorDone, setGeneratorDone] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<{
+    genre?: string; difficulty?: string; mechanics?: string[];
+    ai_features?: string[]; tech_stack?: string[]; description_enhanced?: string;
+    architecture?: { core_loop?: string; ai_system?: string };
+    unique_feature?: string; estimated_time?: string; ai_powered?: boolean;
+  } | null>(null);
   const [adminTab, setAdminTab] = useState("dashboard");
 
   // Payment modal
@@ -671,23 +677,109 @@ export default function Index() {
                 <div className="rounded-lg p-4 border" style={{ borderColor: "rgba(0,255,136,0.2)", background: "rgba(0,255,136,0.03)" }}>
                   <div className="font-mono text-xs space-y-2">
                     {[
-                      { step: 1, label: "Анализ описания игры..." },
-                      { step: 2, label: "Генерация архитектуры и механик..." },
-                      { step: 3, label: "ИИ пишет код игры..." },
-                      { step: 4, label: "Сборка и тестирование..." },
+                      { step: 1, label: "Отправляю описание в ИИ..." },
+                      { step: 2, label: "ИИ определяет жанр и механики..." },
+                      { step: 3, label: "Генерирую архитектуру и ИИ-систему..." },
+                      { step: 4, label: "Сохраняю проект и создаю ИИ-агента..." },
                     ].map(({ step, label }) => (
-                      <div key={step} className="flex items-center gap-2" style={{ color: generatorStep >= step ? "#00ff88" : "rgba(255,255,255,0.2)" }}>
+                      <div key={step} className="flex items-center gap-2"
+                        style={{ color: generatorStep > step ? "#00ff88" : generatorStep === step ? "#00f5ff" : "rgba(255,255,255,0.2)" }}>
                         <Icon name={generatorStep > step ? "CheckCircle" : generatorStep === step ? "Loader" : "Circle"} size={12}
                           className={generatorStep === step && generatorRunning ? "animate-spin" : ""} />
                         {label}
                       </div>
                     ))}
-                    {generatorDone && (
-                      <div className="mt-3 pt-3 border-t flex items-center gap-2 neon-text-cyan" style={{ borderColor: "rgba(0,245,255,0.15)" }}>
-                        <Icon name="CheckCircle" size={14} />
-                        <span className="font-bold">Проект создан! Смотри в «Черновые проекты» ↓</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Результат ИИ-анализа */}
+              {aiAnalysis && generatorDone && (
+                <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(0,245,255,0.2)", background: "rgba(0,245,255,0.03)" }}>
+                  <div className="px-4 py-3 border-b flex items-center justify-between"
+                    style={{ borderColor: "rgba(0,245,255,0.1)", background: "rgba(0,245,255,0.05)" }}>
+                    <div className="flex items-center gap-2 font-orbitron text-xs neon-text-cyan tracking-widest">
+                      <Icon name="Brain" size={14} />
+                      NEXUS AI АНАЛИЗ
+                      {aiAnalysis.ai_powered && <span className="text-white/30 font-mono text-xs">· GPT-4o</span>}
+                    </div>
+                    <button onClick={() => { setAiAnalysis(null); setGeneratorDone(false); setGeneratorStep(0); }}
+                      className="text-white/30 hover:text-white/60 transition-colors">
+                      <Icon name="X" size={14} />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {/* Жанр + сложность */}
+                    <div className="flex gap-3 flex-wrap">
+                      {aiAnalysis.genre && (
+                        <span className="px-3 py-1 rounded-full text-xs font-orbitron font-bold"
+                          style={{ background: "rgba(0,245,255,0.15)", color: "#00f5ff", border: "1px solid rgba(0,245,255,0.3)" }}>
+                          {aiAnalysis.genre}
+                        </span>
+                      )}
+                      {aiAnalysis.difficulty && (
+                        <span className="px-3 py-1 rounded-full text-xs font-orbitron font-bold"
+                          style={{ background: "rgba(191,0,255,0.15)", color: "#bf00ff", border: "1px solid rgba(191,0,255,0.3)" }}>
+                          {aiAnalysis.difficulty}
+                        </span>
+                      )}
+                      {aiAnalysis.estimated_time && (
+                        <span className="px-3 py-1 rounded-full text-xs font-mono text-white/40 border border-white/10">
+                          ⏱ {aiAnalysis.estimated_time}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Уникальная фишка */}
+                    {aiAnalysis.unique_feature && (
+                      <div className="rounded-lg p-3 border" style={{ borderColor: "rgba(255,107,0,0.2)", background: "rgba(255,107,0,0.05)" }}>
+                        <div className="text-xs font-orbitron mb-1" style={{ color: "#ff6b00" }}>⚡ УНИКАЛЬНАЯ ФИШКА</div>
+                        <div className="text-sm text-white/70">{aiAnalysis.unique_feature}</div>
                       </div>
                     )}
+
+                    {/* Механики */}
+                    {aiAnalysis.mechanics && aiAnalysis.mechanics.length > 0 && (
+                      <div>
+                        <div className="text-xs font-orbitron neon-text-green mb-2 tracking-wider">МЕХАНИКИ</div>
+                        <div className="flex flex-wrap gap-2">
+                          {aiAnalysis.mechanics.map((m, i) => (
+                            <span key={i} className="px-2 py-1 rounded text-xs text-white/60 border border-white/10 font-exo">
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ИИ-функции в игре */}
+                    {aiAnalysis.ai_features && aiAnalysis.ai_features.length > 0 && (
+                      <div>
+                        <div className="text-xs font-orbitron mb-2 tracking-wider" style={{ color: "#bf00ff" }}>🤖 ИИ В ИГРЕ</div>
+                        <div className="space-y-1">
+                          {aiAnalysis.ai_features.map((f, i) => (
+                            <div key={i} className="flex items-center gap-2 text-xs text-white/60">
+                              <Icon name="Bot" size={10} style={{ color: "#bf00ff", flexShrink: 0 }} />
+                              {f}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ИИ-система */}
+                    {aiAnalysis.architecture?.ai_system && (
+                      <div className="rounded-lg p-3 border" style={{ borderColor: "rgba(0,255,136,0.15)", background: "rgba(0,255,136,0.03)" }}>
+                        <div className="text-xs font-orbitron neon-text-green mb-1">🧠 ИИ-СИСТЕМА</div>
+                        <div className="text-xs text-white/60 font-exo">{aiAnalysis.architecture.ai_system}</div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-2 border-t neon-text-cyan text-xs font-mono"
+                      style={{ borderColor: "rgba(0,245,255,0.1)" }}>
+                      <Icon name="CheckCircle" size={12} />
+                      Проект создан с ИИ-агентом! Смотри в «Черновые проекты» ↓
+                    </div>
                   </div>
                 </div>
               )}
@@ -701,26 +793,27 @@ export default function Index() {
 
                   setGeneratorRunning(true);
                   setGeneratorDone(false);
-                  setGeneratorStep(0);
+                  setAiAnalysis(null);
+                  setGeneratorStep(1);
 
-                  // Анимированные шаги
-                  await new Promise(r => { setGeneratorStep(1); setTimeout(r, 700); });
-                  await new Promise(r => { setGeneratorStep(2); setTimeout(r, 900); });
-                  await new Promise(r => { setGeneratorStep(3); setTimeout(r, 800); });
+                  // Шаг 1-2: ИИ анализирует описание
+                  const analysis = await api.analyzeGame(generatorInput);
+                  setGeneratorStep(2);
+                  await new Promise(r => setTimeout(r, 600));
+
+                  setGeneratorStep(3);
+                  // Шаг 3-4: генерируем проект в БД с ИИ-структурой
+                  const res = await api.generateGame(
+                    generatorInput, analysis,
+                    generatorEngine || "Godot",
+                    generatorPlatform || "Все",
+                    generatorGraphics || "2D Пиксель"
+                  );
                   setGeneratorStep(4);
-
-                  // Реальное сохранение проекта в БД
-                  const title = generatorInput.slice(0, 80);
-                  const res = await api.createProject({
-                    title,
-                    description: generatorInput,
-                    genre: generatorInput.split(" ")[0],
-                    engine: generatorEngine,
-                    platform: generatorPlatform,
-                    graphics_style: generatorGraphics,
-                  });
+                  await new Promise(r => setTimeout(r, 500));
 
                   if (!res.error) {
+                    setAiAnalysis(analysis);
                     await loadProjects();
                     setGeneratorDone(true);
                     setGeneratorInput("");
@@ -728,7 +821,6 @@ export default function Index() {
                     setGeneratorPlatform("");
                     setGeneratorGraphics("");
                   }
-
                   setGeneratorRunning(false);
                 }}
                 className="w-full py-4 rounded-xl font-orbitron font-bold text-sm tracking-widest flex items-center justify-center gap-3 transition-all text-white"
@@ -738,10 +830,10 @@ export default function Index() {
                   boxShadow: "0 0 20px rgba(0,245,255,0.1)",
                   opacity: generatorRunning ? 0.7 : 1
                 }}>
-                <Icon name={generatorRunning ? "Loader" : "Zap"} size={18}
+                <Icon name={generatorRunning ? "Loader" : "Brain"} size={18}
                   style={{ color: "#00f5ff" }}
                   className={generatorRunning ? "animate-spin" : ""} />
-                {!user ? "ВОЙТИ И СОЗДАТЬ ИГРУ" : generatorRunning ? "ГЕНЕРАЦИЯ..." : "ЗАПУСТИТЬ ИИ ГЕНЕРАЦИЮ"}
+                {!user ? "ВОЙТИ И СОЗДАТЬ ИГРУ" : generatorRunning ? "ИИ АНАЛИЗИРУЕТ..." : "ЗАПУСТИТЬ ИИ ГЕНЕРАЦИЮ"}
                 {!generatorRunning && <Icon name="ChevronRight" size={18} />}
               </button>
             </div>

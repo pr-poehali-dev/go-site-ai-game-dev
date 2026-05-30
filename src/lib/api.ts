@@ -3,6 +3,8 @@ const URLS = {
   projects: "https://functions.poehali.dev/64277570-8553-4968-8681-ffe7548638cf",
   wallet: "https://functions.poehali.dev/1a954e08-0583-4766-9613-d5293fdde716",
   payment: "https://functions.poehali.dev/277bf815-881e-49d8-8edf-9d6d7d582227",
+  aiGenerator: "https://functions.poehali.dev/3c705496-5ce5-4828-a021-c85d1f89dbd4",
+  gameAi: "https://functions.poehali.dev/e8ea41c7-5bb1-473b-87fa-57595365a78c",
 };
 
 function getToken(): string {
@@ -129,5 +131,39 @@ export const api = {
 
   async checkSubscription() {
     return call(URLS.payment, { action: "check" });
+  },
+
+  // AI GENERATOR
+  async analyzeGame(description: string) {
+    return call(URLS.aiGenerator, { action: "analyze", description });
+  },
+
+  async generateGame(description: string, analysis: object, engine: string, platform: string, graphics: string) {
+    return call(URLS.aiGenerator, { action: "generate", description, analysis, engine, platform, graphics });
+  },
+
+  async chatWithAI(question: string, context: object) {
+    return call(URLS.aiGenerator, { action: "chat", question, context });
+  },
+
+  // GAME AI (нейросеть)
+  async getAIAgent(agentId?: number) {
+    return call(URLS.gameAi, { action: "get_agent", ...(agentId ? { agent_id: agentId } : {}) });
+  },
+
+  async saveAISession(agentId: number, score: number, waves: number, survivalTime: number, actionsTaken: number) {
+    return call(URLS.gameAi, { action: "save_session", agent_id: agentId, score, waves, survival_time: survivalTime, actions_taken: actionsTaken });
+  },
+
+  async getLeaderboard() {
+    return call(URLS.gameAi, { action: "get_leaderboard" });
+  },
+
+  async saveScore(score: number, waves: number, playerName?: string) {
+    return call(URLS.gameAi, { action: "save_score", score, waves, player_name: playerName || "Аноним" });
+  },
+
+  async getAITips(agentId: number, score: number, wave: number, lives: number) {
+    return call(URLS.gameAi, { action: "get_tips", agent_id: agentId, score, wave, lives });
   },
 };

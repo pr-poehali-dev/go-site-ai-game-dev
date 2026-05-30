@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Get demo AI agent",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_agent", "mode": "demo"},
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get leaderboard",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_leaderboard"},
+      "expectedStatus": 200
+    }
+  ]
+}

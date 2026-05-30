@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import { api } from "@/lib/api";
 
 interface GameState {
   playerX: number;
@@ -62,6 +63,41 @@ function createInitialState(): GameState {
   };
 }
 
+// ── Нейросеть прямо в браузере ────────────────────────────────────────────────
+function sigmoid(x: number) { return 1 / (1 + Math.exp(-x)); }
+
+function nnForward(weights: { W: number[][][]; b: number[][] }, input: number[]): number[] {
+  let current = input;
+  for (let l = 0; l < weights.W.length; l++) {
+    const next: number[] = [];
+    for (let j = 0; j < weights.W[l][0].length; j++) {
+      let sum = weights.b[l][j];
+      for (let i = 0; i < current.length; i++) sum += current[i] * weights.W[l][i][j];
+      next.push(l < weights.W.length - 1 ? Math.max(0, sum) : sigmoid(sum)); // ReLU hidden, sigmoid output
+    }
+    current = next;
+  }
+  return current;
+}
+
+function getAIInput(s: GameState): number[] {
+  // 8 входов: [px_norm, py_norm, nearest_ex, nearest_ey, dist_norm, has_shield, rapid_fire, score_norm]
+  const nearestEnemy = s.enemies.reduce((best, en) => {
+    const d = Math.hypot(en.x - s.playerX, en.y - s.playerY);
+    return d < best.d ? { d, x: en.x, y: en.y } : best;
+  }, { d: 9999, x: CANVAS_W / 2, y: 0 });
+  return [
+    s.playerX / CANVAS_W,
+    s.playerY / CANVAS_H,
+    nearestEnemy.x / CANVAS_W,
+    nearestEnemy.y / CANVAS_H,
+    Math.min(nearestEnemy.d / 300, 1),
+    s.shieldActive ? 1 : 0,
+    s.rapidFire ? 1 : 0,
+    Math.min(s.score / 1000, 1),
+  ];
+}
+
 export default function DemoGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>(createInitialState());
@@ -71,6 +107,23 @@ export default function DemoGame() {
   const [uiLives, setUiLives] = useState(3);
   const [uiWave, setUiWave] = useState(1);
   const [gameStatus, setGameStatus] = useState<"idle" | "running" | "over" | "won">("idle");
+
+  // ИИ-агент
+  const [aiAgent, setAiAgent] = useState<{
+    agent_id: number; agent_name: string; generation: number;
+    games_played: number; best_score: number; avg_score: number;
+    weights: { W: number[][][]; b: number[][] } | null; status: string;
+  } | null>(null);
+  const aiWeightsRef = useRef<{ W: number[][][]; b: number[][] } | null>(null);
+  const [aiMode, setAiMode] = useState(false); // ИИ играет сам
+  const aiActionsRef = useRef(0);
+  const sessionStartRef = useRef(Date.now());
+
+  // Лидерборд и советы
+  const [leaderboard, setLeaderboard] = useState<Array<{ name: string; type: string; score: number; waves: number }>>([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [tip, setTip] = useState<{ type: string; text: string } | null>(null);
+  const [aiEvolved, setAiEvolved] = useState<string | null>(null);
 
   const spawnEnemyWave = (wave: number) => {
     const s = stateRef.current;
@@ -103,11 +156,69 @@ export default function DemoGame() {
     }
   };
 
+  // Загружаем ИИ-агента при монтировании
+  useEffect(() => {
+    api.getAIAgent().then(data => {
+      if (data.agent_id) {
+        setAiAgent(data);
+        if (data.weights) aiWeightsRef.current = data.weights;
+      }
+    }).catch(() => {});
+    api.getLeaderboard().then(data => {
+      if (data.leaderboard) setLeaderboard(data.leaderboard);
+    }).catch(() => {});
+  }, []);
+
+  const loadLeaderboard = useCallback(async () => {
+    const data = await api.getLeaderboard().catch(() => ({}));
+    if (data.leaderboard) setLeaderboard(data.leaderboard);
+  }, []);
+
+  // Сохраняем результат после игры
+  const onGameEnd = useCallback(async (score: number, wave: number) => {
+    const survivalTime = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+
+    // Сохраняем счёт человека
+    api.saveScore(score, wave).catch(() => {});
+
+    // Обновляем ИИ-агента
+    if (aiAgent?.agent_id) {
+      const result = await api.saveAISession(
+        aiAgent.agent_id, score, wave, survivalTime, aiActionsRef.current
+      ).catch(() => ({}));
+      if (result.evolved) {
+        setAiEvolved(result.message || 'ИИ эволюционировал!');
+        if (result.new_weights) {
+          aiWeightsRef.current = result.new_weights;
+          setAiAgent(prev => prev ? { ...prev, generation: result.generation, games_played: result.games_played } : prev);
+        }
+        setTimeout(() => setAiEvolved(null), 4000);
+      }
+      // Обновляем лучший счёт агента
+      if (score > (aiAgent.best_score || 0)) {
+        setAiAgent(prev => prev ? { ...prev, best_score: score } : prev);
+      }
+    }
+    await loadLeaderboard();
+  }, [aiAgent, loadLeaderboard]);
+
   const startGame = () => {
     stateRef.current = createInitialState();
     stateRef.current.running = true;
     spawnEnemyWave(1);
+    aiActionsRef.current = 0;
+    sessionStartRef.current = Date.now();
+    setTip(null);
     setGameStatus("running");
+
+    // Советы от ИИ-тренера через 5 секунд
+    setTimeout(() => {
+      if (aiAgent?.agent_id) {
+        api.getAITips(aiAgent.agent_id, 0, 1, 3).then(d => {
+          if (d.tips?.[0]) setTip(d.tips[0]);
+        }).catch(() => {});
+      }
+    }, 5000);
   };
 
   useEffect(() => {
@@ -238,11 +349,35 @@ export default function DemoGame() {
         return;
       }
 
-      // Input
-      if ((keys.has("ArrowLeft") || keys.has("KeyA")) && s.playerX > 24) s.playerX -= PLAYER_SPEED;
-      if ((keys.has("ArrowRight") || keys.has("KeyD")) && s.playerX < CANVAS_W - 24) s.playerX += PLAYER_SPEED;
-      if ((keys.has("ArrowUp") || keys.has("KeyW")) && s.playerY > 60) s.playerY -= PLAYER_SPEED;
-      if ((keys.has("ArrowDown") || keys.has("KeyS")) && s.playerY < CANVAS_H - 24) s.playerY += PLAYER_SPEED;
+      // ── ИИ-агент управляет персонажем ──────────────────────────────────────
+      const weights = aiWeightsRef.current;
+      if (aiMode && weights && s.enemies.length > 0) {
+        const input = getAIInput(s);
+        const output = nnForward(weights, input);
+        // [влево, вправо, вверх, стрелять]
+        if (output[0] > 0.55 && s.playerX > 24) s.playerX -= PLAYER_SPEED;
+        if (output[1] > 0.55 && s.playerX < CANVAS_W - 24) s.playerX += PLAYER_SPEED;
+        if (output[2] > 0.55 && s.playerY > 80) s.playerY -= PLAYER_SPEED * 0.7;
+        else if (s.playerY < CANVAS_H - 60) s.playerY += PLAYER_SPEED * 0.3;
+        if (output[3] > 0.4) keys.add("Space");
+        else keys.delete("Space");
+        aiActionsRef.current++;
+
+        // Нарисуем ИИ-индикатор на канвасе
+        ctx.save();
+        ctx.fillStyle = "rgba(0,245,255,0.08)";
+        ctx.fillRect(0, 0, CANVAS_W, 18);
+        ctx.font = "10px monospace";
+        ctx.fillStyle = "#00f5ff";
+        ctx.fillText(`🤖 NEXUS-AI  ← ${output[0].toFixed(2)}  → ${output[1].toFixed(2)}  ↑ ${output[2].toFixed(2)}  🔫 ${output[3].toFixed(2)}`, 6, 13);
+        ctx.restore();
+      } else {
+        // Игрок управляет
+        if ((keys.has("ArrowLeft") || keys.has("KeyA")) && s.playerX > 24) s.playerX -= PLAYER_SPEED;
+        if ((keys.has("ArrowRight") || keys.has("KeyD")) && s.playerX < CANVAS_W - 24) s.playerX += PLAYER_SPEED;
+        if ((keys.has("ArrowUp") || keys.has("KeyW")) && s.playerY > 60) s.playerY -= PLAYER_SPEED;
+        if ((keys.has("ArrowDown") || keys.has("KeyS")) && s.playerY < CANVAS_H - 24) s.playerY += PLAYER_SPEED;
+      }
 
       // Shoot
       s.bulletCooldown = Math.max(0, s.bulletCooldown - 1);
@@ -355,7 +490,11 @@ export default function DemoGame() {
         s.wave++;
         spawnEnemyWave(s.wave);
         s.enemySpawnTimer = 0;
-        if (s.wave > 10) { s.won = true; s.running = false; setGameStatus("won"); }
+        if (s.wave > 10) {
+        s.won = true; s.running = false;
+        setGameStatus("won");
+        onGameEnd(s.score, s.wave);
+      }
       }
 
       // Particles
@@ -387,6 +526,7 @@ export default function DemoGame() {
         s.running = false;
         s.gameOver = true;
         setGameStatus("over");
+        onGameEnd(s.score, s.wave);
       }
 
       animRef.current = requestAnimationFrame(loop);
@@ -394,7 +534,7 @@ export default function DemoGame() {
 
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, []);
+  }, [onGameEnd, aiMode]);  
 
   // Touch controls
   const handleTouch = (dir: string, pressed: boolean) => {
@@ -403,7 +543,28 @@ export default function DemoGame() {
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-4 w-full">
+      {/* ИИ-эволюция уведомление */}
+      {aiEvolved && (
+        <div className="w-full max-w-[480px] px-3 py-2 rounded-lg border text-xs font-mono flex items-center gap-2 animate-fade-in"
+          style={{ borderColor: "rgba(191,0,255,0.4)", background: "rgba(191,0,255,0.08)", color: "#bf00ff" }}>
+          <Icon name="Zap" size={12} />
+          🧬 {aiEvolved}
+        </div>
+      )}
+
+      {/* Совет от ИИ-тренера */}
+      {tip && gameStatus === "running" && (
+        <div className="w-full max-w-[480px] px-3 py-2 rounded-lg border text-xs font-exo flex items-center gap-2"
+          style={{ borderColor: "rgba(0,255,136,0.25)", background: "rgba(0,255,136,0.05)", color: "rgba(255,255,255,0.7)" }}>
+          <Icon name="Bot" size={12} style={{ color: "#00ff88", flexShrink: 0 }} />
+          {tip.text}
+          <button onClick={() => setTip(null)} className="ml-auto text-white/20 hover:text-white/50 transition-colors flex-shrink-0">
+            <Icon name="X" size={10} />
+          </button>
+        </div>
+      )}
+
       {/* HUD */}
       <div className="flex items-center justify-between w-full max-w-[480px] px-2">
         <div className="flex items-center gap-4">
@@ -414,11 +575,24 @@ export default function DemoGame() {
             ВОЛНА: <span className="font-black">{uiWave}</span>
           </div>
         </div>
-        <div className="flex gap-1">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Icon key={i} name="Heart" size={16}
-              style={{ color: i < uiLives ? "#ff00aa" : "rgba(255,255,255,0.15)", filter: i < uiLives ? "drop-shadow(0 0 4px #ff00aa)" : "none" }} />
-          ))}
+        <div className="flex items-center gap-3">
+          {/* Переключатель ИИ-режима */}
+          <button onClick={() => setAiMode(v => !v)}
+            className="px-2 py-1 rounded text-xs font-orbitron transition-all flex items-center gap-1"
+            style={{
+              background: aiMode ? "rgba(191,0,255,0.2)" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${aiMode ? "rgba(191,0,255,0.5)" : "rgba(255,255,255,0.1)"}`,
+              color: aiMode ? "#bf00ff" : "rgba(255,255,255,0.3)"
+            }}>
+            <Icon name="Bot" size={11} />
+            {aiMode ? "ИИ" : "ИИ"}
+          </button>
+          <div className="flex gap-1">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Icon key={i} name="Heart" size={16}
+                style={{ color: i < uiLives ? "#ff00aa" : "rgba(255,255,255,0.15)", filter: i < uiLives ? "drop-shadow(0 0 4px #ff00aa)" : "none" }} />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -449,36 +623,174 @@ export default function DemoGame() {
 
         {/* Overlay: Game Over */}
         {gameStatus === "over" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center"
-            style={{ background: "rgba(5,8,15,0.92)", backdropFilter: "blur(4px)" }}>
-            <div className="font-orbitron font-black text-3xl mb-2 tracking-wider"
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6"
+            style={{ background: "rgba(5,8,15,0.93)", backdropFilter: "blur(4px)" }}>
+            <div className="font-orbitron font-black text-3xl mb-1 tracking-wider"
               style={{ color: "#ff00aa", textShadow: "0 0 30px #ff00aa" }}>GAME OVER</div>
-            <div className="font-mono text-white/40 text-sm mb-2">Счёт: <span className="text-white font-bold">{uiScore.toLocaleString()}</span></div>
-            <div className="font-mono text-white/30 text-xs mb-8">Волна: {uiWave}</div>
-            <button onClick={startGame}
-              className="neon-btn-violet px-8 py-3 rounded-xl font-orbitron font-bold text-sm tracking-widest flex items-center gap-2">
-              <Icon name="RotateCcw" size={16} />ЗАНОВО
-            </button>
+            <div className="font-mono text-white/50 text-sm mb-1">
+              Счёт: <span className="text-white font-bold">{uiScore.toLocaleString()}</span>
+              &nbsp;·&nbsp; Волна: <span className="text-white font-bold">{uiWave}</span>
+            </div>
+            {aiAgent && (
+              <div className="text-xs font-mono mb-4" style={{ color: "#bf00ff" }}>
+                Рекорд ИИ-агента: {aiAgent.best_score.toLocaleString()} · Поколение {aiAgent.generation}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={startGame}
+                className="neon-btn-violet px-6 py-2.5 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center gap-2">
+                <Icon name="RotateCcw" size={14} />ЗАНОВО
+              </button>
+              <button onClick={() => setShowLeaderboard(true)}
+                className="px-6 py-2.5 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center gap-2 border border-white/10 text-white/40 hover:text-white/70 transition-all">
+                <Icon name="Trophy" size={14} />РЕЙТИНГ
+              </button>
+            </div>
           </div>
         )}
 
         {/* Overlay: Won */}
         {gameStatus === "won" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center"
-            style={{ background: "rgba(5,8,15,0.92)", backdropFilter: "blur(4px)" }}>
-            <div className="font-orbitron font-black text-3xl mb-2 tracking-wider neon-text-green">ПОБЕДА!</div>
-            <div className="font-mono text-white/40 text-sm mb-2">Счёт: <span className="text-white font-bold">{uiScore.toLocaleString()}</span></div>
-            <div className="font-mono text-white/30 text-xs mb-8">Все 10 волн пройдены!</div>
-            <button onClick={startGame}
-              className="neon-btn-cyan px-8 py-3 rounded-xl font-orbitron font-bold text-sm tracking-widest flex items-center gap-2">
-              <Icon name="RotateCcw" size={16} />ИГРАТЬ СНОВА
-            </button>
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6"
+            style={{ background: "rgba(5,8,15,0.93)", backdropFilter: "blur(4px)" }}>
+            <div className="font-orbitron font-black text-3xl mb-1 tracking-wider neon-text-green">ПОБЕДА!</div>
+            <div className="font-mono text-white/50 text-sm mb-1">
+              Счёт: <span className="text-white font-bold">{uiScore.toLocaleString()}</span>
+              &nbsp;·&nbsp; Все 10 волн!
+            </div>
+            {aiAgent && (
+              <div className="text-xs font-mono mb-4" style={{ color: "#00ff88" }}>
+                ИИ-агент обновил рекорд · Поколение {aiAgent.generation}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={startGame}
+                className="neon-btn-cyan px-6 py-2.5 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center gap-2">
+                <Icon name="RotateCcw" size={14} />ЕЩЁ РАЗ
+              </button>
+              <button onClick={() => setShowLeaderboard(true)}
+                className="px-6 py-2.5 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center gap-2 border border-white/10 text-white/40 hover:text-white/70 transition-all">
+                <Icon name="Trophy" size={14} />РЕЙТИНГ
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Overlay: Idle */}
+        {gameStatus === "idle" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6"
+            style={{ background: "rgba(5,8,15,0.88)", backdropFilter: "blur(4px)" }}>
+            <div className="font-orbitron font-black text-2xl neon-text-cyan mb-1 tracking-widest">COSMIC RAIDERS</div>
+            <div className="font-mono text-xs text-white/30 mb-4 text-center">
+              ← → ↑ ↓ + ПРОБЕЛ &nbsp;|&nbsp; <span className="neon-text-cyan">S</span>=Щит &nbsp; <span style={{ color: "#ffdd00" }}>R</span>=Rapid
+            </div>
+            {aiAgent && (
+              <div className="mb-4 px-4 py-2 rounded-lg border text-center"
+                style={{ borderColor: "rgba(191,0,255,0.3)", background: "rgba(191,0,255,0.07)" }}>
+                <div className="text-xs font-orbitron mb-1" style={{ color: "#bf00ff" }}>
+                  🤖 {aiAgent.agent_name} · {aiAgent.status}
+                </div>
+                <div className="text-xs font-mono text-white/40">
+                  Поколение {aiAgent.generation} · {aiAgent.games_played} игр · рекорд {aiAgent.best_score.toLocaleString()}
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => { setAiMode(false); startGame(); }}
+                className="neon-btn-cyan px-8 py-3 rounded-xl font-orbitron font-black text-sm tracking-widest flex items-center gap-2">
+                <Icon name="Play" size={16} />ИГРАТЬ
+              </button>
+              {aiAgent && (
+                <button onClick={() => { setAiMode(true); startGame(); }}
+                  className="px-6 py-3 rounded-xl font-orbitron font-bold text-sm tracking-widest flex items-center gap-2"
+                  style={{ background: "rgba(191,0,255,0.15)", border: "1px solid rgba(191,0,255,0.4)", color: "#bf00ff" }}>
+                  <Icon name="Bot" size={16} />ИИ ИГРАЕТ
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Лидерборд оверлей */}
+        {showLeaderboard && (
+          <div className="absolute inset-0 flex flex-col"
+            style={{ background: "rgba(5,8,15,0.96)", backdropFilter: "blur(4px)" }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "rgba(0,245,255,0.1)" }}>
+              <div className="font-orbitron font-black text-sm neon-text-cyan tracking-widest flex items-center gap-2">
+                <Icon name="Trophy" size={14} /> РЕЙТИНГ
+              </div>
+              <button onClick={() => setShowLeaderboard(false)} className="text-white/30 hover:text-white transition-colors">
+                <Icon name="X" size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+              {leaderboard.length === 0 && (
+                <div className="text-center text-white/25 font-mono text-xs py-8">Пока нет результатов — будь первым!</div>
+              )}
+              {leaderboard.map((entry, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                  style={{ background: i === 0 ? "rgba(255,215,0,0.07)" : "rgba(255,255,255,0.02)" }}>
+                  <div className="w-6 text-center font-orbitron font-black text-xs"
+                    style={{ color: i === 0 ? "#ffd700" : i === 1 ? "#c0c0c0" : i === 2 ? "#cd7f32" : "rgba(255,255,255,0.3)" }}>
+                    {i + 1}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <span className="text-xs" style={{ color: entry.type === "ai" ? "#bf00ff" : "#00f5ff" }}>
+                      {entry.type === "ai" ? "🤖" : "👤"}
+                    </span>
+                    <span className="font-exo text-sm text-white/70 truncate">{entry.name}</span>
+                  </div>
+                  <div className="font-orbitron font-black text-sm" style={{ color: entry.type === "ai" ? "#bf00ff" : "#00f5ff" }}>
+                    {entry.score.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+              <button onClick={() => { setShowLeaderboard(false); startGame(); }}
+                className="w-full py-2.5 rounded-lg font-orbitron font-bold text-xs tracking-widest neon-btn-cyan flex items-center justify-center gap-2">
+                <Icon name="Play" size={14} />ИГРАТЬ СНОВА
+              </button>
+            </div>
           </div>
         )}
       </div>
 
+      {/* Панель ИИ-агента под канвасом */}
+      {aiAgent && (
+        <div className="w-full max-w-[480px] rounded-xl border p-3"
+          style={{ borderColor: "rgba(191,0,255,0.2)", background: "rgba(191,0,255,0.04)" }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 font-orbitron text-xs tracking-widest" style={{ color: "#bf00ff" }}>
+              <Icon name="Brain" size={13} />
+              {aiAgent.agent_name}
+              <span className="text-white/30 font-mono text-xs">gen.{aiAgent.generation}</span>
+            </div>
+            <span className="text-xs font-mono" style={{ color: "#bf00ff" }}>{aiAgent.status}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {[
+              { label: "Рекорд", value: aiAgent.best_score.toLocaleString(), color: "#00ff88" },
+              { label: "Игр", value: aiAgent.games_played, color: "#00f5ff" },
+              { label: "Ср. счёт", value: Math.round(aiAgent.avg_score || 0), color: "#bf00ff" },
+            ].map(s => (
+              <div key={s.label} className="rounded-lg px-2 py-1.5" style={{ background: "rgba(255,255,255,0.03)" }}>
+                <div className="font-orbitron font-black text-sm" style={{ color: s.color }}>{s.value}</div>
+                <div className="text-white/30 text-xs font-mono">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2 text-xs font-mono text-white/30 items-center">
+            <Icon name="Activity" size={10} style={{ color: "#bf00ff" }} />
+            Нейросеть: {aiAgent.generation > 0 ? `эволюционировала ${aiAgent.generation} раз` : "только создана, начинает обучение"}
+            &nbsp;·&nbsp;
+            <button onClick={() => setShowLeaderboard(true)} className="neon-text-cyan hover:underline">рейтинг</button>
+          </div>
+        </div>
+      )}
+
       {/* Mobile controls */}
-      <div className="flex gap-4 mt-2 md:hidden">
+      <div className="flex gap-4 mt-1 md:hidden">
         <div className="grid grid-cols-3 gap-1">
           <div />
           <button onPointerDown={() => handleTouch("ArrowUp", true)} onPointerUp={() => handleTouch("ArrowUp", false)}
@@ -504,10 +816,6 @@ export default function DemoGame() {
           style={{ background: "rgba(0,245,255,0.15)", border: "1px solid rgba(0,245,255,0.4)", color: "#00f5ff" }}>
           ОГОНЬ
         </button>
-      </div>
-
-      <div className="text-center text-xs font-mono text-white/20 mt-1">
-        Это демо — ИИ сгенерировал полноценный геймплей. <span className="neon-text-cyan">Создай свою игру →</span>
       </div>
     </div>
   );
