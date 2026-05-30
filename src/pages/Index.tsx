@@ -174,6 +174,11 @@ export default function Index() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [generatorInput, setGeneratorInput] = useState("");
   const [generatorStep, setGeneratorStep] = useState(0);
+  const [generatorEngine, setGeneratorEngine] = useState("");
+  const [generatorPlatform, setGeneratorPlatform] = useState("");
+  const [generatorGraphics, setGeneratorGraphics] = useState("");
+  const [generatorRunning, setGeneratorRunning] = useState(false);
+  const [generatorDone, setGeneratorDone] = useState(false);
   const [adminTab, setAdminTab] = useState("dashboard");
 
   // Payment modal
@@ -602,7 +607,7 @@ export default function Index() {
           </div>
 
           <div className="glass-card rounded-2xl p-8 border"
-            style={{ borderColor: "rgba(0,245,255,0.2)", boxShadow: "0 0 40px rgba(0,245,255,0.05)" }}>
+            style={{ borderColor: "rgba(0,245,255,0.2)", boxShadow: "0 0 40px rgba(0,245,255,0.05)", letterSpacing: "normal" }}>
             <div className="flex items-center gap-2 mb-6 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
               <div className="w-3 h-3 rounded-full" style={{ background: "#ff5f56" }} />
               <div className="w-3 h-3 rounded-full" style={{ background: "#ffbd2e" }} />
@@ -618,8 +623,8 @@ export default function Index() {
                   onChange={(e) => setGeneratorInput(e.target.value)}
                   placeholder="Например: 2D платформер в стиле киберпанк с роботом-героем, лазерами и процедурными уровнями. Мобайл + ПК версия..."
                   rows={4}
-                  className="w-full bg-black/30 border rounded-lg p-4 text-sm text-white/80 placeholder-white/20 outline-none resize-none"
-                  style={{ borderColor: "rgba(0,245,255,0.2)" }}
+                  className="w-full bg-black/30 border rounded-lg p-4 text-sm text-white/80 placeholder-white/20 outline-none resize-none font-exo"
+                  style={{ borderColor: "rgba(0,245,255,0.2)", letterSpacing: "normal", wordSpacing: "normal", fontFamily: "'Exo 2', sans-serif" }}
                 />
               </div>
 
@@ -635,45 +640,109 @@ export default function Index() {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: "Движок", opts: ["Unity", "Godot", "Unreal", "Custom ИИ"] },
-                  { label: "Платформа", opts: ["ПК", "Мобайл", "Браузер", "Все"] },
-                  { label: "Графика", opts: ["2D Пиксель", "2D Вектор", "3D Реализм", "3D Стиль"] },
-                ].map((sel) => (
-                  <select key={sel.label} className="bg-black/30 border rounded p-2.5 text-xs text-white/60 outline-none"
-                    style={{ borderColor: "rgba(0,245,255,0.15)" }}>
-                    <option>{sel.label}</option>
-                    {sel.opts.map(o => <option key={o}>{o}</option>)}
-                  </select>
-                ))}
+                <select
+                  value={generatorEngine}
+                  onChange={e => setGeneratorEngine(e.target.value)}
+                  className="bg-black/30 border rounded p-2.5 text-xs text-white/60 outline-none font-exo"
+                  style={{ borderColor: "rgba(0,245,255,0.15)", letterSpacing: "normal" }}>
+                  <option value="">Движок</option>
+                  {["Unity", "Godot", "Unreal", "Custom ИИ"].map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <select
+                  value={generatorPlatform}
+                  onChange={e => setGeneratorPlatform(e.target.value)}
+                  className="bg-black/30 border rounded p-2.5 text-xs text-white/60 outline-none font-exo"
+                  style={{ borderColor: "rgba(0,245,255,0.15)", letterSpacing: "normal" }}>
+                  <option value="">Платформа</option>
+                  {["ПК", "Мобайл", "Браузер", "Все"].map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <select
+                  value={generatorGraphics}
+                  onChange={e => setGeneratorGraphics(e.target.value)}
+                  className="bg-black/30 border rounded p-2.5 text-xs text-white/60 outline-none font-exo"
+                  style={{ borderColor: "rgba(0,245,255,0.15)", letterSpacing: "normal" }}>
+                  <option value="">Графика</option>
+                  {["2D Пиксель", "2D Вектор", "3D Реализм", "3D Стиль"].map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
               </div>
 
+              {/* Прогресс генерации */}
               {generatorStep > 0 && (
                 <div className="rounded-lg p-4 border" style={{ borderColor: "rgba(0,255,136,0.2)", background: "rgba(0,255,136,0.03)" }}>
-                  <div className="font-mono text-xs neon-text-green space-y-1">
-                    {generatorStep >= 1 && <div>✓ Анализ запроса...</div>}
-                    {generatorStep >= 2 && <div>✓ Генерация архитектуры игры...</div>}
-                    {generatorStep >= 3 && <div>✓ Написание кода ИИ...</div>}
-                    {generatorStep >= 4 && <div>⚡ Сборка и тестирование...</div>}
+                  <div className="font-mono text-xs space-y-2">
+                    {[
+                      { step: 1, label: "Анализ описания игры..." },
+                      { step: 2, label: "Генерация архитектуры и механик..." },
+                      { step: 3, label: "ИИ пишет код игры..." },
+                      { step: 4, label: "Сборка и тестирование..." },
+                    ].map(({ step, label }) => (
+                      <div key={step} className="flex items-center gap-2" style={{ color: generatorStep >= step ? "#00ff88" : "rgba(255,255,255,0.2)" }}>
+                        <Icon name={generatorStep > step ? "CheckCircle" : generatorStep === step ? "Loader" : "Circle"} size={12}
+                          className={generatorStep === step && generatorRunning ? "animate-spin" : ""} />
+                        {label}
+                      </div>
+                    ))}
+                    {generatorDone && (
+                      <div className="mt-3 pt-3 border-t flex items-center gap-2 neon-text-cyan" style={{ borderColor: "rgba(0,245,255,0.15)" }}>
+                        <Icon name="CheckCircle" size={14} />
+                        <span className="font-bold">Проект создан! Смотри в «Черновые проекты» ↓</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
               <button
+                disabled={generatorRunning}
                 onClick={async () => {
                   if (!generatorInput.trim()) return;
                   if (!user) { setAuthModal("register"); return; }
-                  setGeneratorStep(p => Math.min(p + 1, 4));
-                  if (generatorStep === 3) {
-                    setNewProjectTitle(generatorInput.slice(0, 60));
-                    await handleCreateProject();
+                  if (generatorRunning) return;
+
+                  setGeneratorRunning(true);
+                  setGeneratorDone(false);
+                  setGeneratorStep(0);
+
+                  // Анимированные шаги
+                  await new Promise(r => { setGeneratorStep(1); setTimeout(r, 700); });
+                  await new Promise(r => { setGeneratorStep(2); setTimeout(r, 900); });
+                  await new Promise(r => { setGeneratorStep(3); setTimeout(r, 800); });
+                  setGeneratorStep(4);
+
+                  // Реальное сохранение проекта в БД
+                  const title = generatorInput.slice(0, 80);
+                  const res = await api.createProject({
+                    title,
+                    description: generatorInput,
+                    genre: generatorInput.split(" ")[0],
+                    engine: generatorEngine,
+                    platform: generatorPlatform,
+                    graphics_style: generatorGraphics,
+                  });
+
+                  if (!res.error) {
+                    await loadProjects();
+                    setGeneratorDone(true);
+                    setGeneratorInput("");
+                    setGeneratorEngine("");
+                    setGeneratorPlatform("");
+                    setGeneratorGraphics("");
                   }
+
+                  setGeneratorRunning(false);
                 }}
                 className="w-full py-4 rounded-xl font-orbitron font-bold text-sm tracking-widest flex items-center justify-center gap-3 transition-all text-white"
-                style={{ background: "linear-gradient(135deg, rgba(0,245,255,0.2), rgba(191,0,255,0.2))", border: "1px solid rgba(0,245,255,0.4)", boxShadow: "0 0 20px rgba(0,245,255,0.1)" }}>
-                <Icon name="Zap" size={18} style={{ color: "#00f5ff" }} />
-                {user ? "ЗАПУСТИТЬ ИИ ГЕНЕРАЦИЮ" : "ВОЙТИ И СОЗДАТЬ ИГРУ"}
-                <Icon name="ChevronRight" size={18} />
+                style={{
+                  background: "linear-gradient(135deg, rgba(0,245,255,0.2), rgba(191,0,255,0.2))",
+                  border: "1px solid rgba(0,245,255,0.4)",
+                  boxShadow: "0 0 20px rgba(0,245,255,0.1)",
+                  opacity: generatorRunning ? 0.7 : 1
+                }}>
+                <Icon name={generatorRunning ? "Loader" : "Zap"} size={18}
+                  style={{ color: "#00f5ff" }}
+                  className={generatorRunning ? "animate-spin" : ""} />
+                {!user ? "ВОЙТИ И СОЗДАТЬ ИГРУ" : generatorRunning ? "ГЕНЕРАЦИЯ..." : "ЗАПУСТИТЬ ИИ ГЕНЕРАЦИЮ"}
+                {!generatorRunning && <Icon name="ChevronRight" size={18} />}
               </button>
             </div>
           </div>
