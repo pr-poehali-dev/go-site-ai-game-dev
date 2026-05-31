@@ -629,8 +629,8 @@ export default function Index() {
                   onChange={(e) => setGeneratorInput(e.target.value)}
                   placeholder="Например: 2D платформер в стиле киберпанк с роботом-героем, лазерами и процедурными уровнями. Мобайл + ПК версия..."
                   rows={4}
-                  className="w-full bg-black/30 border rounded-lg p-4 text-sm text-white/80 placeholder-white/20 outline-none resize-none font-exo"
-                  style={{ borderColor: "rgba(0,245,255,0.2)", letterSpacing: "normal", wordSpacing: "normal", fontFamily: "'Exo 2', sans-serif" }}
+                  className="w-full bg-black/30 border rounded-lg p-4 text-sm text-white/80 placeholder-white/20 outline-none resize-none"
+                  style={{ borderColor: "rgba(0,245,255,0.2)" }}
                 />
               </div>
 

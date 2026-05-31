@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Вне @layer — максимальный приоритет. Сброс letter-spacing для полей ввода */
+input,
+textarea,
+select {
+  letter-spacing: 0 !important;
+  word-spacing: 0 !important;
+  font-family: "Exo 2", sans-serif !important;
+}
+
 @layer base {
   :root {
     --background: 220 20% 4%;
@@ -62,16 +71,6 @@
 
   html {
     scroll-behavior: smooth;
-  }
-
-  /* Сброс letter-spacing для всех полей ввода — без этого слова слипаются */
-  input,
-  textarea,
-  select {
-    letter-spacing: normal !important;
-    word-spacing: normal !important;
-    font-family: "Exo 2", sans-serif !important;
-    font-feature-settings: normal !important;
   }
 }
 
