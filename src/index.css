@@ -2,13 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Вне @layer — максимальный приоритет. Сброс letter-spacing для полей ввода */
-input,
-textarea,
-select {
-  letter-spacing: 0 !important;
-  word-spacing: 0 !important;
-  font-family: "Exo 2", sans-serif !important;
+/* Сброс после всех Tailwind-слоёв — перебивает tracking-widest/font-mono наследование */
+input:not([type]),
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+textarea {
+  letter-spacing: 0em !important;
+  word-spacing: normal !important;
+  font-family: "Exo 2", ui-sans-serif, sans-serif !important;
+  word-break: normal !important;
 }
 
 @layer base {

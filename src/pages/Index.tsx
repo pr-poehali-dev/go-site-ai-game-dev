@@ -204,9 +204,15 @@ export default function Index() {
   const [userProjects, setUserProjects] = useState<Array<{
     id: number; title: string; genre: string; engine: string;
     status: string; progress: number; updated_at: string;
+    description?: string; platform?: string; graphics_style?: string;
+    ai_genre?: string; ai_mechanics?: string[];
   }>>([]);
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
+  const [openProject, setOpenProject] = useState<typeof userProjects[0] | null>(null);
+
+  // Языки — активный для обучения
+  const [activeLanguage, setActiveLanguage] = useState<string | null>(null);
 
   // Wallet
   const [walletData, setWalletData] = useState<{
@@ -855,18 +861,62 @@ export default function Index() {
             <p className="text-white/40">Изучай и создавай на любом языке — ИИ обучит и поможет</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {LANGUAGES.map((lang) => (
-              <div key={lang.name} className="glass-card rounded-xl p-5 border card-hover cursor-pointer"
-                style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-3 h-3 rounded-full" style={{ background: lang.color, boxShadow: `0 0 8px ${lang.color}` }} />
-                  <span className="font-orbitron font-bold text-sm" style={{ color: lang.color }}>{lang.name}</span>
+            {LANGUAGES.map((lang) => {
+              const isActive = activeLanguage === lang.name;
+              return (
+                <div key={lang.name}
+                  onClick={() => setActiveLanguage(isActive ? null : lang.name)}
+                  className="glass-card rounded-xl p-5 border card-hover cursor-pointer transition-all"
+                  style={{
+                    borderColor: isActive ? lang.color + "80" : "rgba(255,255,255,0.06)",
+                    background: isActive ? lang.color + "0d" : undefined,
+                    boxShadow: isActive ? `0 0 20px ${lang.color}25` : undefined,
+                  }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ background: lang.color, boxShadow: `0 0 ${isActive ? 12 : 6}px ${lang.color}` }} />
+                    <span className="font-orbitron font-bold text-sm" style={{ color: lang.color }}>{lang.name}</span>
+                    {isActive && <Icon name="CheckCircle" size={12} style={{ color: lang.color, marginLeft: "auto" }} />}
+                  </div>
+                  <p className="text-white/40 text-xs mb-3">{lang.desc}</p>
+                  {isActive ? (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-mono mb-2" style={{ color: lang.color }}>✓ ВЫБРАН ДЛЯ ИЗУЧЕНИЯ</div>
+                      <button
+                        onClick={e => { e.stopPropagation(); if (!user) setAuthModal("register"); }}
+                        className="w-full py-1.5 rounded text-xs font-orbitron font-bold transition-all"
+                        style={{ background: lang.color + "20", border: `1px solid ${lang.color}50`, color: lang.color }}>
+                        {user ? "НАЧАТЬ КУРС" : "ВОЙТИ И УЧИТЬСЯ"}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-mono tracking-wider" style={{ color: lang.color + "70" }}>
+                      НАЧАТЬ КУРС →
+                    </span>
+                  )}
                 </div>
-                <p className="text-white/40 text-xs mb-3">{lang.desc}</p>
-                <span className="text-xs font-mono tracking-wider" style={{ color: lang.color + "80" }}>НАЧАТЬ КУРС →</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          {activeLanguage && (
+            <div className="mt-6 rounded-xl border p-5 flex items-center justify-between gap-4"
+              style={{ borderColor: "rgba(0,245,255,0.2)", background: "rgba(0,245,255,0.04)" }}>
+              <div>
+                <div className="font-orbitron font-bold text-sm neon-text-cyan mb-1">
+                  Выбран язык: {activeLanguage}
+                </div>
+                <div className="text-xs text-white/40 font-mono">
+                  {LANGUAGES.find(l => l.name === activeLanguage)?.desc} · ИИ-преподаватель подготовит персональный план
+                </div>
+              </div>
+              <button
+                onClick={() => { if (!user) setAuthModal("register"); }}
+                className="neon-btn-cyan px-5 py-2.5 rounded-lg font-orbitron font-bold text-xs tracking-widest flex-shrink-0 flex items-center gap-2">
+                <Icon name="BookOpen" size={14} />
+                {user ? "ОТКРЫТЬ КУРС" : "ЗАРЕГИСТРИРОВАТЬСЯ"}
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -915,16 +965,18 @@ export default function Index() {
                 const colors = ["#bf00ff", "#00f5ff", "#00ff88", "#ff6b00", "#ff00aa"];
                 const color = colors[i % colors.length];
                 return (
-                  <div key={proj.id} className="glass-card rounded-xl p-6 border card-hover"
-                    style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <div key={proj.id}
+                    onClick={() => setOpenProject(proj)}
+                    className="glass-card rounded-xl p-6 border card-hover cursor-pointer"
+                    style={{ borderColor: `${color}25` }}>
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-orbitron font-bold text-sm text-white/90 truncate mr-2">{proj.title}</h3>
                       <span className="text-xs font-mono px-2 py-1 rounded flex-shrink-0"
-                        style={{ background: color + "15", color, border: `1px solid ${color}30` }}>
+                        style={{ background: color + "18", color, border: `1px solid ${color}40` }}>
                         {proj.status}
                       </span>
                     </div>
-                    <div className="mb-3">
+                    <div className="mb-4">
                       <div className="flex justify-between text-xs text-white/40 mb-2 font-mono">
                         <span>Прогресс</span>
                         <span style={{ color }}>{proj.progress}%</span>
@@ -932,10 +984,10 @@ export default function Index() {
                       <ProgressBar value={proj.progress} color={color} />
                     </div>
                     <div className="flex items-center justify-between text-xs text-white/30 font-mono">
-                      <span>{proj.genre || "Жанр не задан"}</span>
-                      <button className="hover:text-white transition-colors flex items-center gap-1">
-                        <Icon name="Play" size={12} /> ОТКРЫТЬ
-                      </button>
+                      <span>{proj.genre || proj.ai_genre || "Жанр не задан"}</span>
+                      <span className="flex items-center gap-1 transition-colors" style={{ color }}>
+                        <Icon name="FolderOpen" size={12} /> ОТКРЫТЬ
+                      </span>
                     </div>
                   </div>
                 );
@@ -1532,6 +1584,91 @@ export default function Index() {
           </div>
         </div>
       </footer>
+
+      {/* ═══ МОДАЛКА ПРОЕКТА ═══ */}
+      {openProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(5,8,15,0.92)", backdropFilter: "blur(8px)" }}
+          onClick={() => setOpenProject(null)}>
+          <div className="w-full max-w-lg rounded-2xl border overflow-hidden"
+            style={{ background: "#0a0d16", borderColor: "rgba(255,107,0,0.3)", boxShadow: "0 0 60px rgba(255,107,0,0.1)" }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Шапка */}
+            <div className="flex items-center justify-between px-6 py-4 border-b"
+              style={{ borderColor: "rgba(255,107,0,0.15)", background: "rgba(255,107,0,0.06)" }}>
+              <div>
+                <div className="font-mono text-xs mb-1 tracking-widest" style={{ color: "#ff6b00" }}>// PROJECT_EDITOR</div>
+                <h3 className="font-orbitron font-black text-lg text-white">{openProject.title}</h3>
+              </div>
+              <button onClick={() => setOpenProject(null)} className="text-white/30 hover:text-white transition-colors">
+                <Icon name="X" size={20} />
+              </button>
+            </div>
+
+            {/* Контент */}
+            <div className="p-6 space-y-5">
+              {/* Прогресс */}
+              <div>
+                <div className="flex justify-between text-xs text-white/40 mb-2 font-mono">
+                  <span>Прогресс разработки</span>
+                  <span style={{ color: "#ff6b00" }}>{openProject.progress}%</span>
+                </div>
+                <ProgressBar value={openProject.progress} color="#ff6b00" />
+              </div>
+
+              {/* Параметры */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Жанр", value: openProject.genre || openProject.ai_genre || "Не задан" },
+                  { label: "Движок", value: openProject.engine || "Не задан" },
+                  { label: "Платформа", value: openProject.platform || "Все" },
+                  { label: "Статус", value: openProject.status },
+                ].map(item => (
+                  <div key={item.label} className="rounded-lg p-3 border"
+                    style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+                    <div className="text-white/30 text-xs font-mono mb-1">{item.label}</div>
+                    <div className="text-white/80 text-sm font-orbitron font-bold">{item.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Описание / механики */}
+              {openProject.description && (
+                <div className="rounded-lg p-4 border" style={{ borderColor: "rgba(255,107,0,0.15)", background: "rgba(255,107,0,0.04)" }}>
+                  <div className="text-xs font-mono mb-2" style={{ color: "#ff6b00" }}>ОПИСАНИЕ</div>
+                  <p className="text-white/60 text-sm leading-relaxed">{openProject.description}</p>
+                </div>
+              )}
+
+              {openProject.ai_mechanics && openProject.ai_mechanics.length > 0 && (
+                <div>
+                  <div className="text-xs font-mono mb-2 neon-text-green">ИИ-МЕХАНИКИ</div>
+                  <div className="flex flex-wrap gap-2">
+                    {openProject.ai_mechanics.map((m, i) => (
+                      <span key={i} className="px-2 py-1 rounded text-xs text-white/60 border border-white/10">{m}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Действия */}
+              <div className="flex gap-3 pt-2">
+                <button className="flex-1 py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2"
+                  style={{ background: "rgba(255,107,0,0.15)", border: "1px solid rgba(255,107,0,0.4)", color: "#ff6b00" }}>
+                  <Icon name="Code" size={14} />
+                  РЕДАКТОР КОДА
+                </button>
+                <button className="flex-1 py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2"
+                  style={{ background: "rgba(0,245,255,0.12)", border: "1px solid rgba(0,245,255,0.3)", color: "#00f5ff" }}>
+                  <Icon name="Play" size={14} />
+                  ЗАПУСТИТЬ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
