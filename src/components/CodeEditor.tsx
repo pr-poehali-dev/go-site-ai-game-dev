@@ -356,22 +356,16 @@ export const agent = new NexusAgent();
     if (!aiQuestion.trim()) return;
     setAiLoading(true);
     setAiAnswer("");
-    // Имитация ответа (реальный запрос — через api.chatWithAI)
-    await new Promise(r => setTimeout(r, 900));
-    const q = aiQuestion.toLowerCase();
-    let answer = "";
-    if (q.includes("враг") || q.includes("enemy")) {
-      answer = `Для создания врагов в ${engine} используй паттерн State Machine. Создай состояния: Idle → Patrol → Chase → Attack. В Godot это делается через AnimationTree + скрипт с match statement.`;
-    } else if (q.includes("счёт") || q.includes("score")) {
-      answer = `Счёт лучше хранить в синглтоне (Autoload в Godot). Создай GameManager.gd с var score = 0 и сигналом score_changed(value). Так все сцены получат обновление автоматически.`;
-    } else if (q.includes("прыж") || q.includes("jump")) {
-      answer = `Прыжок: применяй силу через velocity.y = -jump_force в момент нажатия. Для двойного прыжка добавь счётчик jump_count. Значение jump_force около 400-600 для 2D.`;
-    } else if (q.includes("уровень") || q.includes("level")) {
-      answer = `Процедурная генерация уровней: используй алгоритм BSP (Binary Space Partitioning) или Wave Function Collapse. В Godot есть TileMap с встроенным Random Tiling.`;
-    } else {
-      answer = `По теме "${aiQuestion}": рекомендую разбить задачу на мелкие компоненты. Начни с минимального рабочего прототипа (MVP), затем постепенно добавляй сложность. Используй сигналы/события для слабой связанности компонентов.`;
-    }
-    setAiAnswer(answer);
+    const q = aiQuestion;
+    setAiQuestion("");
+
+    const res = await api.chatWithAI(q, {
+      description: project.description || project.title,
+      engine: engine,
+      genre: project.genre || "",
+    }, "game").catch(() => null);
+
+    setAiAnswer(res?.answer || "Не удалось получить ответ. Проверь подключение к ИИ.");
     setAiLoading(false);
   };
 

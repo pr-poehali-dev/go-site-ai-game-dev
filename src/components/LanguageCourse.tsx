@@ -171,10 +171,10 @@ export default function LanguageCourse({ language, onClose }: Props) {
     setAiLoading(true);
 
     const res = await api.chatWithAI(q, {
-      genre: "обучение программированию",
       engine: language.name,
-      description: `Пользователь изучает ${language.name} для разработки игр. Урок: "${lesson.title}"`,
-    }).catch(() => null);
+      description: `Урок: "${lesson.title}"`,
+      genre: "обучение программированию",
+    }, "course").catch(() => null);
 
     let answer = "";
     if (res?.answer) {

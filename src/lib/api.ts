@@ -142,8 +142,8 @@ export const api = {
     return call(URLS.aiGenerator, { action: "generate", description, analysis, engine, platform, graphics });
   },
 
-  async chatWithAI(question: string, context: object) {
-    return call(URLS.aiGenerator, { action: "chat", question, context });
+  async chatWithAI(question: string, context: object, mode: "game" | "course" = "game") {
+    return call(URLS.aiGenerator, { action: "chat", question, context, mode });
   },
 
   // GAME AI (нейросеть)

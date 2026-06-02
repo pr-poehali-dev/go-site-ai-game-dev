@@ -6,6 +6,20 @@
       "path": "/",
       "body": {"action": "analyze", "description": "2D платформер с роботом и лазерами"},
       "expectedStatus": 200
+    },
+    {
+      "name": "Chat game mode",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "chat", "mode": "game", "question": "как сделать врагов", "context": {"engine": "Godot", "genre": "платформер", "description": "2D платформер"}},
+      "expectedStatus": 200
+    },
+    {
+      "name": "Chat course mode",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "chat", "mode": "course", "question": "объясни функции", "context": {"engine": "Python", "description": "Функции def"}},
+      "expectedStatus": 200
     }
   ]
 }

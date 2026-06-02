@@ -33,18 +33,21 @@ def get_user(cur, token):
     )
     return cur.fetchone()
 
-def gpt(messages: list, max_tokens=1500) -> str:
+def gpt(messages: list, max_tokens=1500, json_mode=True) -> str:
     api_key = os.environ.get('OPENAI_API_KEY', '')
     if not api_key:
         return None
 
-    payload = json.dumps({
+    body = {
         'model': 'gpt-4o-mini',
         'messages': messages,
         'max_tokens': max_tokens,
         'temperature': 0.7,
-        'response_format': {'type': 'json_object'},
-    }).encode()
+    }
+    if json_mode:
+        body['response_format'] = {'type': 'json_object'}
+
+    payload = json.dumps(body).encode()
 
     req = urllib.request.Request(
         'https://api.openai.com/v1/chat/completions',
@@ -240,49 +243,77 @@ def handler(event: dict, context) -> dict:
             })
         }
 
-    # ─── ЧАТ С ИИ-ПОМОЩНИКОМ ──────────────────────────────────────────────────
+    # ─── ЧАТ С ИИ-ПОМОЩНИКОМ (редактор кода + курс языков) ───────────────────
     if action == 'chat':
         question = body.get('question', '').strip()
         context_data = body.get('context', {})
+        mode = body.get('mode', 'game')  # 'game' | 'course'
+
         if not question:
             return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Нет вопроса'})}
 
         has_key = bool(os.environ.get('OPENAI_API_KEY'))
+
         if not has_key:
-            tips = {
-                'платформер': 'Для платформера советую начать с базовой физики прыжков. Добавь переменную jump_force и настрой её около 500.',
-                'шутер': 'В шутере ключевое — обратная связь при попадании. Добавь вибрацию экрана и звук выстрела.',
-                'rpg': 'В RPG начни с системы диалогов. Используй словари для хранения веток разговора.',
+            # Локальные ответы-заглушки
+            fallbacks = {
+                'платформер': 'Для платформера: переменная jump_force ≈ 400–600, применяй через velocity.y. Двойной прыжок — счётчик jump_count.',
+                'шутер': 'В шутере добавь пул объектов для пуль — не создавай новые каждый раз. Camera shake при выстреле через Tween.',
+                'rpg': 'В RPG храни диалоги в JSON/словарях. Система квестов — паттерн State Machine.',
+                'враг': 'ИИ врага: состояния Idle → Patrol → Chase → Attack. В Godot используй NavigationAgent2D для pathfinding.',
+                'очк': 'Счёт храни в синглтоне (Autoload). Сигнал score_changed уведомит все сцены автоматически.',
+                'прыж': 'Прыжок: velocity.y = -jump_force при нажатии. Проверяй is_on_floor() перед прыжком.',
+                'цикл': 'for i in range(count): — перебор числового диапазона. for item in array: — перебор массива.',
+                'класс': 'Класс — шаблон объекта. class Enemy: def __init__(self): self.hp = 100. Создай: e = Enemy()',
+                'функц': 'Функция — переиспользуемый блок кода. def shoot(): ... — объявление. shoot() — вызов.',
             }
-            genre_lower = context_data.get('genre', '').lower()
-            tip = next((v for k, v in tips.items() if k in genre_lower), 
-                      'Начни с минимально рабочей версии (MVP). Одна механика — полностью рабочая — лучше пяти сломанных.')
+            genre = context_data.get('genre', '').lower()
+            q_lower = question.lower()
+            answer = next((v for k, v in fallbacks.items() if k in q_lower or k in genre), 
+                         f'По вопросу "{question}": начни с минимального рабочего прототипа, затем усложняй. Декомпозируй задачу на маленькие шаги.')
             return {
                 'statusCode': 200, 'headers': CORS,
-                'body': json.dumps({'answer': tip, 'ai_powered': False})
+                'body': json.dumps({'answer': answer, 'ai_powered': False})
             }
 
-        system = """Ты — NEXUS AI, эксперт по разработке игр. Отвечаешь кратко (2-4 предложения), 
-по делу, на русском. Даёшь конкретные советы с примерами кода если нужно."""
+        # Системный промпт зависит от режима
+        if mode == 'course':
+            lang = context_data.get('engine', 'Python')
+            lesson = context_data.get('description', '')
+            system = f"""Ты — NEXUS AI, опытный преподаватель программирования.
+Студент изучает {lang} для разработки игр.
+Текущий урок: {lesson}
 
-        ctx_text = ''
-        if context_data:
-            ctx_text = f"\nКонтекст проекта: жанр={context_data.get('genre','')}, " \
-                      f"движок={context_data.get('engine','')}, " \
-                      f"описание={context_data.get('description','')[:100]}"
+Правила ответов:
+- Отвечай на русском, дружелюбно и понятно
+- Объяснения простые, без академического жаргона
+- Обязательно давай пример кода на {lang}
+- Связывай примеры с разработкой игр (враги, очки, движение, прыжок)
+- Если вопрос про ошибку — покажи исправленный код
+- Длина ответа: 3-6 предложений + пример кода"""
+        else:
+            proj_title = context_data.get('description', '')[:80]
+            engine = context_data.get('engine', '')
+            genre = context_data.get('genre', '')
+            system = f"""Ты — NEXUS AI, эксперт-разработчик игр.
+Проект: {proj_title}
+Движок: {engine} | Жанр: {genre}
+
+Правила ответов:
+- Отвечай на русском, конкретно и по делу
+- Давай готовый код под движок {engine} если нужно
+- Учитывай контекст проекта в каждом ответе
+- Предлагай лучшие практики геймдизайна
+- Длина: 2-4 предложения + код при необходимости"""
 
         raw = gpt([
             {'role': 'system', 'content': system},
-            {'role': 'user', 'content': question + ctx_text}
-        ], max_tokens=400)
-
-        answer = json.loads(raw) if raw.strip().startswith('{') else {'answer': raw}
-        if isinstance(answer, str):
-            answer = {'answer': answer}
+            {'role': 'user', 'content': question}
+        ], max_tokens=600, json_mode=False)
 
         return {
             'statusCode': 200, 'headers': CORS,
-            'body': json.dumps({'answer': answer.get('answer', raw), 'ai_powered': True})
+            'body': json.dumps({'answer': raw or 'Не удалось получить ответ', 'ai_powered': True})
         }
 
     return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Укажи action: analyze|generate|chat'})}
