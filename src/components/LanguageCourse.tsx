@@ -170,11 +170,12 @@ export default function LanguageCourse({ language, onClose }: Props) {
     setChatHistory(prev => [...prev, { role: "user", text: q }]);
     setAiLoading(true);
 
+    const historyToSend = chatHistory.slice(-8).map(m => ({ role: m.role, text: m.text }));
     const res = await api.chatWithAI(q, {
       engine: language.name,
       description: `Урок: "${lesson.title}"`,
       genre: "обучение программированию",
-    }, "course").catch(() => null);
+    }, "course", historyToSend).catch(() => null);
 
     let answer = "";
     if (res?.answer) {

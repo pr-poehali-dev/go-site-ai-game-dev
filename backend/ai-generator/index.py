@@ -248,6 +248,7 @@ def handler(event: dict, context) -> dict:
         question = body.get('question', '').strip()
         context_data = body.get('context', {})
         mode = body.get('mode', 'game')  # 'game' | 'course'
+        history = body.get('history', [])  # [{role: user|ai, text: str}]
 
         if not question:
             return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Нет вопроса'})}
@@ -306,10 +307,14 @@ def handler(event: dict, context) -> dict:
 - Предлагай лучшие практики геймдизайна
 - Длина: 2-4 предложения + код при необходимости"""
 
-        raw = gpt([
-            {'role': 'system', 'content': system},
-            {'role': 'user', 'content': question}
-        ], max_tokens=600, json_mode=False)
+        # Строим messages с историей (последние 10 сообщений)
+        messages = [{'role': 'system', 'content': system}]
+        for msg in history[-10:]:
+            role = 'assistant' if msg.get('role') == 'ai' else 'user'
+            messages.append({'role': role, 'content': msg.get('text', '')})
+        messages.append({'role': 'user', 'content': question})
+
+        raw = gpt(messages, max_tokens=700, json_mode=False)
 
         return {
             'statusCode': 200, 'headers': CORS,

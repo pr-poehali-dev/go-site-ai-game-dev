@@ -1,5 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import { api } from "@/lib/api";
+
+type ChatMsg = { role: "user" | "ai"; text: string; time: string };
 
 interface CodeEditorProps {
   project: {
@@ -223,12 +226,23 @@ export default function CodeEditor({ project, onClose }: CodeEditorProps) {
   const [output, setOutput] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [tab, setTab] = useState<"code" | "console" | "ai">(  "code");
+  const [tab, setTab] = useState<"code" | "console" | "ai">("code");
   const [aiQuestion, setAiQuestion] = useState("");
-  const [aiAnswer, setAiAnswer] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatMsg[]>([
+    {
+      role: "ai",
+      text: `Привет! Я NEXUS AI — знаю всё о проекте «${project.title}» (${project.engine || "Custom"}, ${project.genre || "без жанра"}). Спрашивай про код, механики, архитектуру — помню весь наш разговор.`,
+      time: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
+    },
+  ]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatHistory]);
 
   const files = [
     { id: "main", name: engine === "Godot" ? "player.gd" : engine === "Unity" ? "PlayerController.cs" : engine === "Unreal" ? "AMyCharacter.h" : "game.js", icon: "FileCode" },
@@ -352,22 +366,39 @@ export const agent = new NexusAgent();
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleAI = async () => {
-    if (!aiQuestion.trim()) return;
-    setAiLoading(true);
-    setAiAnswer("");
-    const q = aiQuestion;
+  const handleAI = useCallback(async (questionOverride?: string) => {
+    const q = (questionOverride ?? aiQuestion).trim();
+    if (!q || aiLoading) return;
     setAiQuestion("");
+    setAiLoading(true);
 
-    const res = await api.chatWithAI(q, {
-      description: project.description || project.title,
-      engine: engine,
-      genre: project.genre || "",
-    }, "game").catch(() => null);
+    const now = new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
+    const userMsg: ChatMsg = { role: "user", text: q, time: now };
+    setChatHistory(prev => [...prev, userMsg]);
 
-    setAiAnswer(res?.answer || "Не удалось получить ответ. Проверь подключение к ИИ.");
+    // Передаём последние 10 сообщений + текущий код как контекст
+    const historyToSend = [...chatHistory, userMsg].slice(-10);
+    const codeSnippet = code.slice(0, 300); // первые 300 символов текущего кода
+
+    const res = await api.chatWithAI(
+      q,
+      {
+        description: `${project.description || project.title}\n\nТекущий код:\n${codeSnippet}`,
+        engine: engine,
+        genre: project.genre || "",
+      },
+      "game",
+      historyToSend.map(m => ({ role: m.role, text: m.text }))
+    ).catch(() => null);
+
+    const answerTime = new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
+    setChatHistory(prev => [...prev, {
+      role: "ai",
+      text: res?.answer || "Не удалось получить ответ. Убедись что добавлен OpenAI ключ.",
+      time: answerTime,
+    }]);
     setAiLoading(false);
-  };
+  }, [aiQuestion, aiLoading, chatHistory, code, project, engine]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "#0a0d16" }}>
@@ -520,36 +551,108 @@ export const agent = new NexusAgent();
           {/* ИИ-помощник */}
           {tab === "ai" && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-auto p-4 space-y-3">
-                <div className="rounded-lg p-3 border text-sm"
-                  style={{ borderColor: "rgba(191,0,255,0.2)", background: "rgba(191,0,255,0.05)", color: "rgba(255,255,255,0.7)" }}>
-                  <div className="flex items-center gap-2 mb-2 text-xs font-orbitron" style={{ color: "#bf00ff" }}>
-                    <Icon name="Bot" size={12} /> NEXUS AI · ПОМОЩНИК РАЗРАБОТЧИКА
-                  </div>
-                  Я знаю всё о проекте «{project.title}». Спроси меня: как сделать врагов, прыжок, систему счёта, уровни или что-то ещё.
+              {/* Шапка чата */}
+              <div className="flex items-center justify-between px-4 py-2 border-b flex-shrink-0"
+                style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(191,0,255,0.04)" }}>
+                <div className="flex items-center gap-2 text-xs font-orbitron" style={{ color: "#bf00ff" }}>
+                  <Icon name="Bot" size={12} />
+                  NEXUS AI · {chatHistory.length - 1} сообщений
                 </div>
-                {aiAnswer && (
-                  <div className="rounded-lg p-3 border text-sm"
-                    style={{ borderColor: "rgba(0,245,255,0.15)", background: "rgba(0,245,255,0.04)", color: "rgba(255,255,255,0.8)" }}>
-                    <div className="flex items-center gap-2 mb-2 text-xs font-orbitron neon-text-cyan">
-                      <Icon name="Brain" size={12} /> ОТВЕТ
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-mono text-white/25 flex items-center gap-1">
+                    <Icon name="FileCode" size={10} />
+                    видит код
+                  </div>
+                  <button
+                    onClick={() => setChatHistory([{
+                      role: "ai",
+                      text: `Контекст сброшен. Начинаем заново! Проект «${project.title}», движок ${engine}. Чем могу помочь?`,
+                      time: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
+                    }])}
+                    className="text-white/20 hover:text-white/50 transition-colors"
+                    title="Очистить историю">
+                    <Icon name="Trash2" size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* История чата */}
+              <div className="flex-1 overflow-auto p-4 space-y-3">
+                {chatHistory.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className="max-w-[88%] space-y-1">
+                      <div className={`flex items-center gap-1.5 text-xs font-mono ${msg.role === "user" ? "justify-end" : ""}`}
+                        style={{ color: msg.role === "ai" ? "#bf00ff" : "rgba(255,255,255,0.25)" }}>
+                        {msg.role === "ai" && <Icon name="Bot" size={10} />}
+                        {msg.role === "ai" ? "NEXUS AI" : "ТЫ"}
+                        <span className="text-white/20">{msg.time}</span>
+                      </div>
+                      <div className="rounded-xl px-3.5 py-2.5 text-sm leading-relaxed"
+                        style={msg.role === "ai" ? {
+                          background: "rgba(191,0,255,0.08)",
+                          border: "1px solid rgba(191,0,255,0.2)",
+                          color: "rgba(255,255,255,0.85)",
+                          whiteSpace: "pre-wrap",
+                          fontFamily: msg.text.includes("\n") ? "'Courier New', monospace" : "inherit",
+                          fontSize: msg.text.includes("  ") ? "12px" : "13px",
+                        } : {
+                          background: "rgba(255,255,255,0.06)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          color: "rgba(255,255,255,0.9)",
+                        }}>
+                        {msg.text}
+                      </div>
                     </div>
-                    {aiAnswer}
+                  </div>
+                ))}
+                {aiLoading && (
+                  <div className="flex justify-start">
+                    <div className="rounded-xl px-3.5 py-2.5 text-sm flex items-center gap-2"
+                      style={{ background: "rgba(191,0,255,0.08)", border: "1px solid rgba(191,0,255,0.2)", color: "#bf00ff" }}>
+                      <Icon name="Loader" size={12} className="animate-spin" />
+                      <span className="text-xs font-mono">NEXUS AI думает...</span>
+                    </div>
                   </div>
                 )}
+                <div ref={chatEndRef} />
               </div>
-              <div className="p-4 border-t flex gap-2" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+
+              {/* Быстрые вопросы */}
+              <div className="px-4 pb-2 flex gap-2 overflow-x-auto flex-shrink-0">
+                {[
+                  `Как добавить врагов в ${engine}?`,
+                  "Оптимизируй мой код",
+                  "Какие механики добавить?",
+                  "Объясни архитектуру",
+                ].map(q => (
+                  <button key={q}
+                    onClick={() => handleAI(q)}
+                    disabled={aiLoading}
+                    className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-mono border transition-all hover:border-purple-500/50 hover:text-white/70 disabled:opacity-40"
+                    style={{ borderColor: "rgba(191,0,255,0.2)", color: "rgba(255,255,255,0.35)", background: "rgba(191,0,255,0.04)", whiteSpace: "nowrap" }}>
+                    {q}
+                  </button>
+                ))}
+              </div>
+
+              {/* Поле ввода */}
+              <div className="p-4 border-t flex gap-2 flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                 <input
                   value={aiQuestion}
                   onChange={e => setAiQuestion(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleAI()}
-                  placeholder="Как сделать врагов? Как добавить прыжок?..."
+                  onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleAI()}
+                  placeholder="Спроси про код, механику, архитектуру..."
+                  disabled={aiLoading}
                   className="flex-1 bg-black/30 border rounded-lg px-3 py-2 text-sm text-white/80 placeholder-white/25 outline-none"
-                  style={{ borderColor: "rgba(191,0,255,0.2)" }}
+                  style={{ borderColor: "rgba(191,0,255,0.25)" }}
                 />
-                <button onClick={handleAI} disabled={aiLoading}
-                  className="px-4 py-2 rounded-lg font-orbitron font-bold text-xs flex items-center gap-1.5 flex-shrink-0"
-                  style={{ background: "rgba(191,0,255,0.15)", color: "#bf00ff", border: "1px solid rgba(191,0,255,0.3)" }}>
+                <button onClick={() => handleAI()} disabled={aiLoading || !aiQuestion.trim()}
+                  className="px-4 py-2 rounded-lg font-orbitron font-bold text-xs flex items-center gap-1.5 flex-shrink-0 transition-all"
+                  style={{
+                    background: aiLoading || !aiQuestion.trim() ? "rgba(191,0,255,0.06)" : "rgba(191,0,255,0.18)",
+                    color: aiLoading || !aiQuestion.trim() ? "rgba(191,0,255,0.4)" : "#bf00ff",
+                    border: "1px solid rgba(191,0,255,0.3)",
+                  }}>
                   <Icon name={aiLoading ? "Loader" : "Send"} size={12} className={aiLoading ? "animate-spin" : ""} />
                   {aiLoading ? "..." : "СПРОСИТЬ"}
                 </button>
