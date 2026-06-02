@@ -2,17 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Сброс после всех Tailwind-слоёв — перебивает tracking-widest/font-mono наследование */
-input:not([type]),
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="search"],
-textarea {
-  letter-spacing: 0em !important;
-  word-spacing: normal !important;
-  font-family: "Exo 2", ui-sans-serif, sans-serif !important;
-  word-break: normal !important;
+/* Сброс для всех полей ввода — вне @layer, максимальный приоритет */
+textarea,
+input {
+  letter-spacing: 0 !important;
+  word-spacing: 0 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-feature-settings: normal !important;
+  font-variant-ligatures: none !important;
+  font-variant: normal !important;
 }
 
 @layer base {

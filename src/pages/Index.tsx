@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import { api } from "@/lib/api";
 import DemoGame from "@/components/DemoGame";
 import PaymentModal from "@/components/PaymentModal";
+import CodeEditor from "@/components/CodeEditor";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная" },
@@ -210,6 +211,7 @@ export default function Index() {
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
   const [openProject, setOpenProject] = useState<typeof userProjects[0] | null>(null);
+  const [codeEditorProject, setCodeEditorProject] = useState<typeof userProjects[0] | null>(null);
 
   // Языки — активный для обучения
   const [activeLanguage, setActiveLanguage] = useState<string | null>(null);
@@ -1654,12 +1656,16 @@ export default function Index() {
 
               {/* Действия */}
               <div className="flex gap-3 pt-2">
-                <button className="flex-1 py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2"
+                <button
+                  onClick={() => { setCodeEditorProject(openProject); setOpenProject(null); }}
+                  className="flex-1 py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2"
                   style={{ background: "rgba(255,107,0,0.15)", border: "1px solid rgba(255,107,0,0.4)", color: "#ff6b00" }}>
                   <Icon name="Code" size={14} />
                   РЕДАКТОР КОДА
                 </button>
-                <button className="flex-1 py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2"
+                <button
+                  onClick={() => { setCodeEditorProject(openProject); setOpenProject(null); }}
+                  className="flex-1 py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2"
                   style={{ background: "rgba(0,245,255,0.12)", border: "1px solid rgba(0,245,255,0.3)", color: "#00f5ff" }}>
                   <Icon name="Play" size={14} />
                   ЗАПУСТИТЬ
@@ -1668,6 +1674,14 @@ export default function Index() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ═══ РЕДАКТОР КОДА ═══ */}
+      {codeEditorProject && (
+        <CodeEditor
+          project={codeEditorProject}
+          onClose={() => setCodeEditorProject(null)}
+        />
       )}
     </div>
   );
