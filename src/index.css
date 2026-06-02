@@ -5,12 +5,12 @@
 /* Сброс для всех полей ввода — вне @layer, максимальный приоритет */
 textarea,
 input {
-  letter-spacing: 0 !important;
-  word-spacing: 0 !important;
-  font-family: Arial, Helvetica, sans-serif !important;
-  font-feature-settings: normal !important;
+  letter-spacing: 0px !important;
+  word-spacing: 0px !important;
+  font-family: "Exo 2", "Segoe UI", Arial, sans-serif !important;
+  font-feature-settings: "kern" 0 !important;
   font-variant-ligatures: none !important;
-  font-variant: normal !important;
+  -webkit-font-smoothing: auto !important;
 }
 
 @layer base {

@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import DemoGame from "@/components/DemoGame";
 import PaymentModal from "@/components/PaymentModal";
 import CodeEditor from "@/components/CodeEditor";
+import LanguageCourse from "@/components/LanguageCourse";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная" },
@@ -215,6 +216,7 @@ export default function Index() {
 
   // Языки — активный для обучения
   const [activeLanguage, setActiveLanguage] = useState<string | null>(null);
+  const [openCourse, setOpenCourse] = useState<{ name: string; color: string; desc: string } | null>(null);
 
   // Wallet
   const [walletData, setWalletData] = useState<{
@@ -638,7 +640,14 @@ export default function Index() {
                   placeholder="Например: 2D платформер в стиле киберпанк с роботом-героем, лазерами и процедурными уровнями. Мобайл + ПК версия..."
                   rows={4}
                   className="w-full bg-black/30 border rounded-lg p-4 text-sm text-white/80 placeholder-white/20 outline-none resize-none"
-                  style={{ borderColor: "rgba(0,245,255,0.2)" }}
+                  style={{
+                    borderColor: "rgba(0,245,255,0.2)",
+                    fontFamily: '"Exo 2", "Segoe UI", Arial, sans-serif',
+                    letterSpacing: "0px",
+                    wordSpacing: "0px",
+                    fontSize: "14px",
+                    lineHeight: "1.6",
+                  }}
                 />
               </div>
 
@@ -885,7 +894,11 @@ export default function Index() {
                     <div className="space-y-1.5">
                       <div className="text-xs font-mono mb-2" style={{ color: lang.color }}>✓ ВЫБРАН ДЛЯ ИЗУЧЕНИЯ</div>
                       <button
-                        onClick={e => { e.stopPropagation(); if (!user) setAuthModal("register"); }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (!user) { setAuthModal("register"); return; }
+                          setOpenCourse(lang);
+                        }}
                         className="w-full py-1.5 rounded text-xs font-orbitron font-bold transition-all"
                         style={{ background: lang.color + "20", border: `1px solid ${lang.color}50`, color: lang.color }}>
                         {user ? "НАЧАТЬ КУРС" : "ВОЙТИ И УЧИТЬСЯ"}
@@ -912,7 +925,11 @@ export default function Index() {
                 </div>
               </div>
               <button
-                onClick={() => { if (!user) setAuthModal("register"); }}
+                onClick={() => {
+                  if (!user) { setAuthModal("register"); return; }
+                  const lang = LANGUAGES.find(l => l.name === activeLanguage);
+                  if (lang) setOpenCourse(lang);
+                }}
                 className="neon-btn-cyan px-5 py-2.5 rounded-lg font-orbitron font-bold text-xs tracking-widest flex-shrink-0 flex items-center gap-2">
                 <Icon name="BookOpen" size={14} />
                 {user ? "ОТКРЫТЬ КУРС" : "ЗАРЕГИСТРИРОВАТЬСЯ"}
@@ -1681,6 +1698,14 @@ export default function Index() {
         <CodeEditor
           project={codeEditorProject}
           onClose={() => setCodeEditorProject(null)}
+        />
+      )}
+
+      {/* ═══ КУРС ЯЗЫКА ═══ */}
+      {openCourse && (
+        <LanguageCourse
+          language={openCourse}
+          onClose={() => setOpenCourse(null)}
         />
       )}
     </div>
