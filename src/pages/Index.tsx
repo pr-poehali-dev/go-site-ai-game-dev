@@ -644,6 +644,9 @@ export default function Index() {
                     borderColor: "rgba(0,245,255,0.2)",
                     fontSize: "14px",
                     lineHeight: "1.6",
+                    fontFamily: "Arial, sans-serif",
+                    letterSpacing: "0",
+                    wordSpacing: "normal",
                   }}
                 />
               </div>
