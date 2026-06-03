@@ -639,14 +639,22 @@ export default function Index() {
                   onChange={(e) => setGeneratorInput(e.target.value)}
                   placeholder="Например: 2D платформер в стиле киберпанк с роботом-героем, лазерами и процедурными уровнями. Мобайл + ПК версия..."
                   rows={4}
-                  className="w-full bg-black/30 border rounded-lg p-4 text-sm text-white/80 placeholder-white/20 outline-none resize-none"
                   style={{
-                    borderColor: "rgba(0,245,255,0.2)",
+                    width: "100%",
+                    background: "rgba(0,0,0,0.3)",
+                    border: "1px solid rgba(0,245,255,0.2)",
+                    borderRadius: "8px",
+                    padding: "16px",
                     fontSize: "14px",
                     lineHeight: "1.6",
-                    fontFamily: "Arial, sans-serif",
-                    letterSpacing: "0",
-                    wordSpacing: "normal",
+                    color: "rgba(255,255,255,0.8)",
+                    outline: "none",
+                    resize: "none",
+                    fontFamily: "'Segoe UI', Arial, Helvetica, sans-serif",
+                    letterSpacing: "0.01em",
+                    wordSpacing: "0.1em",
+                    fontVariant: "normal",
+                    fontWeight: "400",
                   }}
                 />
               </div>
