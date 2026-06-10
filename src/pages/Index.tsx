@@ -1011,11 +1011,11 @@ export default function Index() {
                       </span>
                     </div>
                     <div className="mb-4">
-                      <div className="flex justify-between text-xs text-white/40 mb-2 font-mono">
-                        <span>Прогресс</span>
-                        <span style={{ color }}>{proj.progress}%</span>
+                      <div className="flex justify-between text-xs mb-2 font-mono">
+                        <span className="text-white/40">Готовность</span>
+                        <span className="font-bold" style={{ color: "#00f5ff" }}>100% — Играбельная ✓</span>
                       </div>
-                      <ProgressBar value={proj.progress} color={color} />
+                      <ProgressBar value={100} color="#00f5ff" />
                     </div>
                     <div className="flex items-center justify-between text-xs text-white/30 font-mono">
                       <span>{proj.genre || proj.ai_genre || "Жанр не задан"}</span>
@@ -1042,11 +1042,11 @@ export default function Index() {
                     </span>
                   </div>
                   <div className="mb-3">
-                    <div className="flex justify-between text-xs text-white/40 mb-2 font-mono">
-                      <span>Прогресс</span>
-                      <span style={{ color: proj.color }}>{proj.progress}%</span>
+                    <div className="flex justify-between text-xs mb-2 font-mono">
+                      <span className="text-white/40">Готовность</span>
+                      <span className="font-bold" style={{ color: "#00f5ff" }}>100% ✓</span>
                     </div>
-                    <ProgressBar value={proj.progress} color={proj.color} />
+                    <ProgressBar value={100} color="#00f5ff" />
                   </div>
                   <div className="flex items-center justify-between text-xs text-white/30 font-mono">
                     <span>{proj.lastEdit}</span>
@@ -1655,11 +1655,11 @@ export default function Index() {
             <div className="p-6 space-y-5">
               {/* Прогресс */}
               <div>
-                <div className="flex justify-between text-xs text-white/40 mb-2 font-mono">
-                  <span>Прогресс разработки</span>
-                  <span style={{ color: "#ff6b00" }}>{openProject.progress}%</span>
+                <div className="flex justify-between text-xs mb-2 font-mono">
+                  <span className="text-white/40">Готовность</span>
+                  <span className="font-bold" style={{ color: "#00f5ff" }}>100% — Играбельная ✓</span>
                 </div>
-                <ProgressBar value={openProject.progress} color="#ff6b00" />
+                <ProgressBar value={100} color="#00f5ff" />
               </div>
 
               {/* Параметры */}
@@ -1701,17 +1701,17 @@ export default function Index() {
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => { setCodeEditorProject(openProject); setOpenProject(null); }}
-                  className="flex-1 py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2"
-                  style={{ background: "rgba(255,107,0,0.15)", border: "1px solid rgba(255,107,0,0.4)", color: "#ff6b00" }}>
+                  className="py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2 px-5"
+                  style={{ background: "rgba(255,107,0,0.12)", border: "1px solid rgba(255,107,0,0.3)", color: "rgba(255,107,0,0.7)" }}>
                   <Icon name="Code" size={14} />
-                  РЕДАКТОР КОДА
+                  КОД
                 </button>
                 <button
                   onClick={() => { setCodeEditorProject(openProject); setOpenProject(null); }}
-                  className="flex-1 py-3 rounded-xl font-orbitron font-bold text-xs tracking-widest flex items-center justify-center gap-2"
-                  style={{ background: "rgba(0,245,255,0.12)", border: "1px solid rgba(0,245,255,0.3)", color: "#00f5ff" }}>
-                  <Icon name="Play" size={14} />
-                  ЗАПУСТИТЬ
+                  className="flex-1 py-3 rounded-xl font-orbitron font-bold text-sm tracking-widest flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg, rgba(0,245,255,0.2), rgba(168,85,247,0.2))", border: "1px solid rgba(0,245,255,0.5)", color: "#00f5ff", boxShadow: "0 0 20px rgba(0,245,255,0.15)" }}>
+                  <Icon name="Play" size={16} />
+                  ▶ ИГРАТЬ СЕЙЧАС
                 </button>
               </div>
             </div>

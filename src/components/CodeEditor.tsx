@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import { api } from "@/lib/api";
+import GameEngine, { detectGenre, detectTheme } from "@/components/GameEngine";
 
 type ChatMsg = { role: "user" | "ai"; text: string; time: string };
 
@@ -226,7 +227,7 @@ export default function CodeEditor({ project, onClose }: CodeEditorProps) {
   const [output, setOutput] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [tab, setTab] = useState<"code" | "console" | "ai">("code");
+  const [tab, setTab] = useState<"code" | "console" | "game" | "ai">("game");
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMsg[]>([
@@ -342,23 +343,13 @@ export const agent = new NexusAgent();
   };
 
   const handleRun = () => {
-    setRunning(true);
-    setTab("console");
-    setOutput([]);
-    const lines = [
+    setTab("game");
+    // Также пишем в консоль
+    setOutput([
       `[${new Date().toLocaleTimeString()}] > Компиляция ${project.title}...`,
-      `[${new Date().toLocaleTimeString()}] ✓ Синтаксис корректен`,
-      `[${new Date().toLocaleTimeString()}] > Запуск в среде ${engine}...`,
-      `[${new Date().toLocaleTimeString()}] ✓ Инициализация сцены`,
-      `[${new Date().toLocaleTimeString()}] Игра запущена!`,
-      `[${new Date().toLocaleTimeString()}] > Счёт: 0 | Жизни: 3`,
-    ];
-    lines.forEach((line, i) => {
-      setTimeout(() => {
-        setOutput(prev => [...prev, line]);
-        if (i === lines.length - 1) setRunning(false);
-      }, i * 300);
-    });
+      `[${new Date().toLocaleTimeString()}] ✓ Игра собрана`,
+      `[${new Date().toLocaleTimeString()}] ▶ Запущено во вкладке ИГРА`,
+    ]);
   };
 
   const handleSave = () => {
@@ -467,10 +458,11 @@ export const agent = new NexusAgent();
             <div className="text-xs text-white/50 truncate">{project.title}</div>
             {project.genre && <div className="text-xs font-mono" style={{ color: "rgba(255,107,0,0.6)" }}>{project.genre}</div>}
             <div className="mt-1">
-              <div className="text-xs text-white/20 mb-1">{project.progress || 5}%</div>
+              <div className="text-xs mb-1 font-bold" style={{ color: "#00f5ff" }}>100% ✓</div>
               <div className="h-1 rounded-full bg-white/5 overflow-hidden">
-                <div className="h-1 rounded-full" style={{ width: `${project.progress || 5}%`, background: "#ff6b00", boxShadow: "0 0 4px #ff6b00" }} />
+                <div className="h-1 rounded-full" style={{ width: "100%", background: "linear-gradient(90deg,#00f5ff,#a855f7)", boxShadow: "0 0 6px #00f5ff" }} />
               </div>
+              <div className="text-xs mt-1" style={{ color: "rgba(0,245,255,0.5)" }}>Играбельная</div>
             </div>
           </div>
         </div>
@@ -480,21 +472,44 @@ export const agent = new NexusAgent();
           {/* Табы */}
           <div className="flex items-center border-b px-4" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
             {[
+              { id: "game", label: "▶ ИГРА", icon: "Gamepad2" },
               { id: "code", label: "КОД", icon: "Code" },
               { id: "console", label: "КОНСОЛЬ", icon: "Terminal" },
-              { id: "ai", label: "ИИ-ПОМОЩНИК", icon: "Bot" },
+              { id: "ai", label: "ИИ", icon: "Bot" },
             ].map(t => (
               <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
                 className="px-4 py-2.5 text-xs font-orbitron font-bold flex items-center gap-1.5 border-b-2 transition-all"
                 style={{
-                  borderColor: tab === t.id ? "#ff6b00" : "transparent",
-                  color: tab === t.id ? "#ff6b00" : "rgba(255,255,255,0.3)",
+                  borderColor: tab === t.id ? (t.id === "game" ? "#00f5ff" : "#ff6b00") : "transparent",
+                  color: tab === t.id ? (t.id === "game" ? "#00f5ff" : "#ff6b00") : "rgba(255,255,255,0.3)",
+                  background: tab === t.id && t.id === "game" ? "rgba(0,245,255,0.04)" : "transparent",
                 }}>
                 <Icon name={t.icon as "Code"} size={12} />
                 {t.label}
               </button>
             ))}
           </div>
+
+          {/* ═══ ВКЛАДКА ИГРА — реальный GameEngine ═══ */}
+          {tab === "game" && (
+            <div className="flex-1 overflow-auto p-4" style={{ background: "#050810" }}>
+              <GameEngine
+                config={{
+                  genre: detectGenre(
+                    [project.description, project.genre, project.title, (project.ai_mechanics || []).join(" ")].join(" ")
+                  ),
+                  title: project.title,
+                  description: project.description || project.title,
+                  colorTheme: detectTheme(project.description || project.title),
+                }}
+              />
+              <div className="mt-3 text-center">
+                <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.2)" }}>
+                  Управление: ← → перемещение · Пробел / действие · Тач-кнопки на экране
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Редактор кода */}
           {tab === "code" && (
