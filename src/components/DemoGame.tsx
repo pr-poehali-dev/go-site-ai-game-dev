@@ -98,7 +98,11 @@ function getAIInput(s: GameState): number[] {
   ];
 }
 
-export default function DemoGame() {
+interface DemoGameProps {
+  onCommand?: (handler: (cmd: string) => void) => void;
+}
+
+export default function DemoGame({ onCommand }: DemoGameProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>(createInitialState());
   const keysRef = useRef<Set<string>>(new Set());
@@ -220,6 +224,16 @@ export default function DemoGame() {
       }
     }, 5000);
   };
+
+  // Команды от Симоны
+  useEffect(() => {
+    if (!onCommand) return;
+    onCommand((cmd: string) => {
+      if (cmd === "start") { setAiMode(false); startGame(); }
+      else if (cmd === "ai") { setAiMode(true); startGame(); }
+      else if (cmd === "restart") startGame();
+    });
+  }, []);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

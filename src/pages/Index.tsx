@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { api } from "@/lib/api";
 import DemoGame from "@/components/DemoGame";
@@ -190,6 +190,7 @@ export default function Index() {
   } | null>(null);
   const [adminTab, setAdminTab] = useState("dashboard");
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const gameCommandRef = useRef<((cmd: string) => void) | null>(null);
 
   // Payment modal
   const [paymentModal, setPaymentModal] = useState<{ open: boolean; plan: string }>({ open: false, plan: "pro" });
@@ -1143,7 +1144,7 @@ export default function Index() {
               Это реальная игра, сгенерированная ИИ прямо здесь. Управление: <span className="font-mono text-white/60">← → ↑ ↓</span> для движения, <span className="font-mono text-white/60">ПРОБЕЛ</span> для стрельбы
             </p>
           </div>
-          <DemoGame />
+          <DemoGame onCommand={(handler) => { gameCommandRef.current = handler; }} />
           <div className="mt-10 text-center">
             <p className="text-white/30 text-sm font-exo mb-4">
               Хочешь такую же, но свою — с твоими героями, механиками и стилем?
@@ -1719,7 +1720,7 @@ export default function Index() {
         />
       )}
 
-      {/* ═══ ИИ-АССИСТЕНТ ЮРА (плавающий) ═══ */}
+      {/* ═══ ИИ-АССИСТЕНТ СИМОНА (плавающий) ═══ */}
       <button
         onClick={() => setAssistantOpen(true)}
         style={{
@@ -1740,7 +1741,7 @@ export default function Index() {
           zIndex: 9998,
           transition: "transform 0.2s",
         }}
-        title="Юра — ИИ-разработчик"
+        title="Симона — ИИ-разработчик"
         onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
         onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
       >
@@ -1767,6 +1768,11 @@ export default function Index() {
               setGeneratorInput(project.description);
               setAssistantOpen(false);
               document.getElementById("generator")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            onGameCommand={(cmd) => {
+              gameCommandRef.current?.(cmd);
+              setAssistantOpen(false);
+              document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
             }}
           />
         </div>

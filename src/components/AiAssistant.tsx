@@ -18,12 +18,14 @@ interface AiAssistantProps {
   onProjectReady?: (project: ProjectReady) => void;
   onClose?: () => void;
   embedded?: boolean;
+  onGameCommand?: (cmd: string) => void;
 }
 
 const QUICK_STARTS = [
   { label: "Создать игру", icon: "Gamepad2", text: "Хочу создать игру" },
   { label: "Создать сайт", icon: "Globe", text: "Хочу создать сайт" },
   { label: "Создать бота", icon: "Bot", text: "Хочу создать Telegram-бота" },
+  { label: "Запустить игру", icon: "Play", text: "Запусти демо-игру" },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
@@ -32,11 +34,22 @@ const TYPE_LABELS: Record<string, string> = {
   bot: "Бот",
 };
 
-export default function AiAssistant({ onProjectReady, onClose, embedded = false }: AiAssistantProps) {
+const GAME_COMMANDS: Record<string, string> = {
+  "запусти демо-игру": "start",
+  "запусти игру": "start",
+  "начни игру": "start",
+  "старт": "start",
+  "включи ии режим": "ai",
+  "ии играет": "ai",
+  "перезапусти игру": "restart",
+  "заново": "restart",
+};
+
+export default function AiAssistant({ onProjectReady, onClose, embedded = false, onGameCommand }: AiAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Привет! Я Юра, твой личный разработчик. Расскажи — что хочешь создать? Игру, сайт или бота?",
+      content: "Привет! Я Симона, твой личный ИИ-разработчик. Расскажи — что хочешь создать? Игру, сайт или бота?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -52,6 +65,19 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false 
   const send = async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
+
+    // Проверяем команды для игры
+    const msgLower = msg.toLowerCase();
+    const gameCmd = Object.entries(GAME_COMMANDS).find(([key]) => msgLower.includes(key));
+    if (gameCmd && onGameCommand) {
+      onGameCommand(gameCmd[1]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: msg },
+        { role: "assistant", content: "Запускаю! Управление: ← → ↑ ↓ + Пробел. Удачи!" },
+      ]);
+      return;
+    }
 
     const userMsg: Message = { role: "user", content: msg };
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
@@ -133,7 +159,7 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false 
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ color: "#00f5ff", fontWeight: 700, fontSize: "14px", letterSpacing: "0.05em" }}>
-            ЮРA — ИИ-разработчик
+            СИМОНА — ИИ-разработчик
           </div>
           <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px" }}>
             Создаю игры, сайты и ботов
