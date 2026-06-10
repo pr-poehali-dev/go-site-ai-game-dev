@@ -55,6 +55,8 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [projectReady, setProjectReady] = useState<ProjectReady | null>(null);
+  const [trust, setTrust] = useState(0);
+  const [profile, setProfile] = useState<{name?: string; level?: string} | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -62,11 +64,21 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    api.assistantProfile().then((d) => {
+      if (d.trust !== undefined) setTrust(d.trust);
+      if (d.name || d.level) setProfile({ name: d.name, level: d.level });
+      if (d.name) {
+        setMessages([{ role: "assistant", content: `С возвращением, ${d.name}! Рада снова тебя видеть 😊 Что создаём?` }]);
+      }
+    }).catch(() => {});
+  }, []);
+
   const send = async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
 
-    // Проверяем команды для игры
+    // Локальные команды для игры
     const msgLower = msg.toLowerCase();
     const gameCmd = Object.entries(GAME_COMMANDS).find(([key]) => msgLower.includes(key));
     if (gameCmd && onGameCommand) {
@@ -90,8 +102,10 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
       const data = await api.assistantChat(msg, history);
       const reply = data.reply || "Что-то пошло не так, попробуй ещё раз.";
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-      if (data.project_ready) {
-        setProjectReady(data.project_ready);
+      if (data.trust !== undefined) setTrust(data.trust);
+      if (data.project_ready) setProjectReady(data.project_ready);
+      if (data.game_cmd && onGameCommand) {
+        onGameCommand(data.game_cmd);
       }
     } catch {
       setMessages((prev) => [
@@ -155,12 +169,19 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
             boxShadow: "0 0 12px rgba(0,245,255,0.3)",
           }}
         />
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: "#00f5ff", fontWeight: 700, fontSize: "14px", letterSpacing: "0.05em" }}>
             СИМОНА — ИИ-разработчик
           </div>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px" }}>
-            Создаю игры, сайты и ботов
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" }}>
+            <div style={{ flex: 1, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
+              <div style={{ width: `${Math.min(trust, 100)}%`, height: "100%",
+                background: trust < 30 ? "#00f5ff" : trust < 60 ? "#a855f7" : "#f97316",
+                transition: "width 0.5s ease", borderRadius: 2 }} />
+            </div>
+            <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "10px", whiteSpace: "nowrap" }}>
+              {trust < 10 ? "новичок" : trust < 30 ? "знакомый" : trust < 60 ? "друг" : "лучший друг"}
+            </span>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>

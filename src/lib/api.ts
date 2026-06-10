@@ -168,8 +168,48 @@ export const api = {
     return call(URLS.gameAi, { action: "get_tips", agent_id: agentId, score, wave, lives });
   },
 
-  // AI ASSISTANT (Юра)
+  // AI ASSISTANT — Симона
+  getUserKey(): string {
+    let key = localStorage.getItem("simona_user_key");
+    if (!key) {
+      key = "u_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("simona_user_key", key);
+    }
+    return key;
+  },
+
   async assistantChat(message: string, history: Array<{role: string; content: string}>) {
-    return call(URLS.aiAssistant, { action: "chat", message, history });
+    const userKey = this.getUserKey();
+    const token = getToken();
+    const res = await fetch(URLS.aiAssistant, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Key": userKey,
+        ...(token ? { "X-Auth-Token": token } : {}),
+      },
+      body: JSON.stringify({ action: "chat", message, history }),
+    });
+    return res.json();
+  },
+
+  async assistantProfile() {
+    const userKey = this.getUserKey();
+    const res = await fetch(URLS.aiAssistant, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-User-Key": userKey },
+      body: JSON.stringify({ action: "get_profile" }),
+    });
+    return res.json();
+  },
+
+  async assistantReset() {
+    const userKey = this.getUserKey();
+    const res = await fetch(URLS.aiAssistant, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-User-Key": userKey },
+      body: JSON.stringify({ action: "reset_memory" }),
+    });
+    return res.json();
   },
 };
