@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Chat - первое сообщение",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "chat", "message": "Хочу сделать игру", "history": []},
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Chat - нет сообщения",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "chat", "message": ""},
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "OPTIONS CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

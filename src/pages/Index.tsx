@@ -5,6 +5,7 @@ import DemoGame from "@/components/DemoGame";
 import PaymentModal from "@/components/PaymentModal";
 import CodeEditor from "@/components/CodeEditor";
 import LanguageCourse from "@/components/LanguageCourse";
+import AiAssistant from "@/components/AiAssistant";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная" },
@@ -188,6 +189,7 @@ export default function Index() {
     unique_feature?: string; estimated_time?: string; ai_powered?: boolean;
   } | null>(null);
   const [adminTab, setAdminTab] = useState("dashboard");
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   // Payment modal
   const [paymentModal, setPaymentModal] = useState<{ open: boolean; plan: string }>({ open: false, plan: "pro" });
@@ -1715,6 +1717,59 @@ export default function Index() {
           language={openCourse}
           onClose={() => setOpenCourse(null)}
         />
+      )}
+
+      {/* ═══ ИИ-АССИСТЕНТ ЮРА (плавающий) ═══ */}
+      <button
+        onClick={() => setAssistantOpen(true)}
+        style={{
+          position: "fixed",
+          bottom: "28px",
+          right: "28px",
+          width: "60px",
+          height: "60px",
+          borderRadius: "50%",
+          background: "linear-gradient(135deg, #00f5ff, #7c3aed)",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "24px",
+          boxShadow: "0 4px 24px rgba(0,245,255,0.4)",
+          zIndex: 9998,
+          transition: "transform 0.2s",
+        }}
+        title="Юра — ИИ-разработчик"
+        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+      >
+        🚀
+      </button>
+
+      {assistantOpen && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "100px",
+            right: "28px",
+            width: "380px",
+            height: "560px",
+            zIndex: 9999,
+            borderRadius: "16px",
+            overflow: "hidden",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,245,255,0.15)",
+          }}
+        >
+          <AiAssistant
+            onClose={() => setAssistantOpen(false)}
+            onProjectReady={(project) => {
+              setGeneratorInput(project.description);
+              setAssistantOpen(false);
+              document.getElementById("generator")?.scrollIntoView({ behavior: "smooth" });
+            }}
+          />
+        </div>
       )}
     </div>
   );

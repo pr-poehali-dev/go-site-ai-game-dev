@@ -5,6 +5,7 @@ const URLS = {
   payment: "https://functions.poehali.dev/277bf815-881e-49d8-8edf-9d6d7d582227",
   aiGenerator: "https://functions.poehali.dev/3c705496-5ce5-4828-a021-c85d1f89dbd4",
   gameAi: "https://functions.poehali.dev/e8ea41c7-5bb1-473b-87fa-57595365a78c",
+  aiAssistant: "https://functions.poehali.dev/1b9b6f10-bfb6-4337-9bee-f2feed595c2b",
 };
 
 function getToken(): string {
@@ -165,5 +166,10 @@ export const api = {
 
   async getAITips(agentId: number, score: number, wave: number, lives: number) {
     return call(URLS.gameAi, { action: "get_tips", agent_id: agentId, score, wave, lives });
+  },
+
+  // AI ASSISTANT (Юра)
+  async assistantChat(message: string, history: Array<{role: string; content: string}>) {
+    return call(URLS.aiAssistant, { action: "chat", message, history });
   },
 };
