@@ -6,12 +6,14 @@ import PaymentModal from "@/components/PaymentModal";
 import CodeEditor from "@/components/CodeEditor";
 import LanguageCourse from "@/components/LanguageCourse";
 import AiAssistant from "@/components/AiAssistant";
+import SimonaKnowledge from "@/components/SimonaKnowledge";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная" },
   { id: "generator", label: "Генератор" },
   { id: "demo", label: "Демо" },
   { id: "portfolio", label: "Портфолио" },
+  { id: "simona", label: "🧠 Симона" },
   { id: "docs", label: "Документация" },
   { id: "community", label: "Сообщество" },
   { id: "subscription", label: "Подписка" },
@@ -1211,6 +1213,14 @@ export default function Index() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ═══ СИМОНА — БАЗА ЗНАНИЙ ═══ */}
+      <section id="simona" className="py-24 px-4 relative">
+        <div className="section-divider mb-24" />
+        <div className="max-w-5xl mx-auto">
+          <SimonaKnowledge />
         </div>
       </section>
 
