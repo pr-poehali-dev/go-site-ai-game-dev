@@ -25,7 +25,7 @@ const QUICK_STARTS = [
   { label: "Создать игру", icon: "Gamepad2", text: "Хочу создать игру" },
   { label: "Создать сайт", icon: "Globe", text: "Хочу создать сайт" },
   { label: "Создать бота", icon: "Bot", text: "Хочу создать Telegram-бота" },
-  { label: "Запустить игру", icon: "Play", text: "Запусти демо-игру" },
+  { label: "Найти в сети", icon: "Search", text: "Найди что нового в разработке игр 2024" },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
@@ -57,6 +57,7 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
   const [projectReady, setProjectReady] = useState<ProjectReady | null>(null);
   const [trust, setTrust] = useState(0);
   const [profile, setProfile] = useState<{name?: string; level?: string} | null>(null);
+  const [loadingHint, setLoadingHint] = useState("думаю");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -96,6 +97,8 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
 
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    const isSearch = /найди|поищи|погугли|что такое|как работает|что нового/i.test(msg);
+    setLoadingHint(isSearch ? "ищу в интернете 🌐" : "думаю 🧠");
     setLoading(true);
 
     try {
@@ -106,6 +109,12 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
       if (data.project_ready) setProjectReady(data.project_ready);
       if (data.game_cmd && onGameCommand) {
         onGameCommand(data.game_cmd);
+      }
+      if (data.learned) {
+        setMessages((prev) => [...prev, {
+          role: "assistant" as const,
+          content: "🧠 _Сохранила в базу знаний_",
+        }]);
       }
     } catch {
       setMessages((prev) => [
@@ -283,7 +292,21 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
                 wordBreak: "break-word",
               }}
             >
-              {msg.content}
+              {msg.content.split('\n').map((line, li) => {
+                // bold **text**, italic _text_, маркеры •
+                const parts = line.split(/(\*\*[^*]+\*\*|_[^_]+_)/g);
+                return (
+                  <div key={li} style={{ marginBottom: li < msg.content.split('\n').length - 1 ? "4px" : 0 }}>
+                    {parts.map((part, pi) => {
+                      if (part.startsWith('**') && part.endsWith('**'))
+                        return <strong key={pi} style={{ color: "#00f5ff" }}>{part.slice(2, -2)}</strong>;
+                      if (part.startsWith('_') && part.endsWith('_'))
+                        return <em key={pi} style={{ color: "rgba(255,255,255,0.45)", fontSize: "11px" }}>{part.slice(1, -1)}</em>;
+                      return <span key={pi}>{part}</span>;
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -309,6 +332,9 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
                   }}
                 />
               ))}
+              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "10px", marginLeft: "6px" }}>
+                {loadingHint}
+              </span>
             </div>
           </div>
         )}
