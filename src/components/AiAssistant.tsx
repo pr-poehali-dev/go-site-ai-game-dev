@@ -142,21 +142,19 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
           flexShrink: 0,
         }}
       >
-        <div
+        <img
+          src="https://cdn.poehali.dev/projects/525cd767-a619-4b4b-a667-a1ccdebc1647/files/b020858b-34ca-4cb0-9f0e-682dcff2c229.jpg"
+          alt="Симона"
           style={{
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             borderRadius: "50%",
-            background: "linear-gradient(135deg, #00f5ff, #7c3aed)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "16px",
+            border: "2px solid rgba(0,245,255,0.5)",
+            objectFit: "cover",
             flexShrink: 0,
+            boxShadow: "0 0 12px rgba(0,245,255,0.3)",
           }}
-        >
-          🚀
-        </div>
+        />
         <div style={{ flex: 1 }}>
           <div style={{ color: "#00f5ff", fontWeight: 700, fontSize: "14px", letterSpacing: "0.05em" }}>
             СИМОНА — ИИ-разработчик
@@ -232,21 +230,18 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
             }}
           >
             {msg.role === "assistant" && (
-              <div
+              <img
+                src="https://cdn.poehali.dev/projects/525cd767-a619-4b4b-a667-a1ccdebc1647/files/b020858b-34ca-4cb0-9f0e-682dcff2c229.jpg"
+                alt="Симона"
                 style={{
                   width: 28,
                   height: 28,
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #00f5ff, #7c3aed)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "13px",
+                  border: "1px solid rgba(0,245,255,0.4)",
+                  objectFit: "cover",
                   flexShrink: 0,
                 }}
-              >
-                🚀
-              </div>
+              />
             )}
             <div
               style={{
@@ -274,9 +269,11 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
 
         {loading && (
           <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #00f5ff, #7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>
-              🚀
-            </div>
+            <img
+              src="https://cdn.poehali.dev/projects/525cd767-a619-4b4b-a667-a1ccdebc1647/files/b020858b-34ca-4cb0-9f0e-682dcff2c229.jpg"
+              alt="Симона"
+              style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid rgba(0,245,255,0.4)", objectFit: "cover", flexShrink: 0 }}
+            />
             <div style={{ padding: "10px 14px", borderRadius: "16px 16px 16px 4px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: "4px", alignItems: "center" }}>
               {[0, 1, 2].map((n) => (
                 <div

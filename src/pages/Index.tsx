@@ -1727,25 +1727,33 @@ export default function Index() {
           position: "fixed",
           bottom: "28px",
           right: "28px",
-          width: "60px",
-          height: "60px",
+          width: "64px",
+          height: "64px",
           borderRadius: "50%",
-          background: "linear-gradient(135deg, #00f5ff, #7c3aed)",
-          border: "none",
+          background: "none",
+          border: "3px solid rgba(0,245,255,0.6)",
           cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "24px",
-          boxShadow: "0 4px 24px rgba(0,245,255,0.4)",
+          padding: 0,
+          overflow: "hidden",
+          boxShadow: "0 4px 24px rgba(0,245,255,0.5), 0 0 0 0 rgba(0,245,255,0.3)",
           zIndex: 9998,
-          transition: "transform 0.2s",
+          transition: "transform 0.2s, box-shadow 0.2s",
         }}
         title="Симона — ИИ-разработчик"
-        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
-        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "scale(1.1)";
+          e.currentTarget.style.boxShadow = "0 6px 32px rgba(0,245,255,0.7), 0 0 0 4px rgba(0,245,255,0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "scale(1)";
+          e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,245,255,0.5)";
+        }}
       >
-        🚀
+        <img
+          src="https://cdn.poehali.dev/projects/525cd767-a619-4b4b-a667-a1ccdebc1647/files/b020858b-34ca-4cb0-9f0e-682dcff2c229.jpg"
+          alt="Симона"
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
       </button>
 
       {assistantOpen && (
