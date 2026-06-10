@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
 import Icon from "@/components/ui/icon";
+import GameEngine, { detectGenre, detectTheme } from "@/components/GameEngine";
 
 interface Message {
   role: "user" | "assistant";
@@ -55,6 +56,7 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [projectReady, setProjectReady] = useState<ProjectReady | null>(null);
+  const [activeGame, setActiveGame] = useState<{ title: string; description: string } | null>(null);
   const [trust, setTrust] = useState(0);
   const [profile, setProfile] = useState<{name?: string; level?: string} | null>(null);
   const [loadingHint, setLoadingHint] = useState("думаю");
@@ -134,8 +136,18 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
   };
 
   const handleProjectCreate = () => {
-    if (projectReady && onProjectReady) {
-      onProjectReady(projectReady);
+    if (!projectReady) return;
+    if (projectReady.type === "game") {
+      // Игры запускаем прямо здесь
+      setActiveGame({ title: projectReady.title, description: projectReady.description });
+      setProjectReady(null);
+      setMessages(prev => [...prev, {
+        role: "assistant" as const,
+        content: `🎮 Запускаю «${projectReady.title}»! Играй прямо здесь — это полноценная версия.`,
+      }]);
+    } else {
+      // Сайты и боты — отправляем в генератор
+      if (onProjectReady) onProjectReady(projectReady);
     }
   };
 
@@ -339,48 +351,85 @@ export default function AiAssistant({ onProjectReady, onClose, embedded = false,
           </div>
         )}
 
+        {/* Активная игра — прямо в чате */}
+        {activeGame && (
+          <div style={{ marginTop: "8px" }}>
+            <GameEngine
+              config={{
+                genre: detectGenre(activeGame.description),
+                title: activeGame.title,
+                description: activeGame.description,
+                colorTheme: detectTheme(activeGame.description),
+              }}
+              onClose={() => setActiveGame(null)}
+              onScore={(s) => s > 0 && s % 50 === 0 && setMessages(prev => [...prev, {
+                role: "assistant" as const,
+                content: `🔥 Отличная игра! Уже ${s} очков!`,
+              }])}
+            />
+          </div>
+        )}
+
         {/* Project ready card */}
         {projectReady && (
           <div
             style={{
-              border: "1px solid rgba(74,222,128,0.4)",
+              border: `1px solid ${projectReady.type === "game" ? "rgba(0,245,255,0.4)" : "rgba(74,222,128,0.4)"}`,
               borderRadius: "12px",
               padding: "14px 16px",
-              background: "rgba(74,222,128,0.06)",
+              background: projectReady.type === "game" ? "rgba(0,245,255,0.05)" : "rgba(74,222,128,0.06)",
             }}
           >
-            <div style={{ color: "#4ade80", fontSize: "11px", fontWeight: 700, marginBottom: "6px", letterSpacing: "0.08em" }}>
-              ✓ ПРОЕКТ ГОТОВ К СОЗДАНИЮ
+            <div style={{ color: projectReady.type === "game" ? "#00f5ff" : "#4ade80", fontSize: "11px", fontWeight: 700, marginBottom: "6px", letterSpacing: "0.08em" }}>
+              {projectReady.type === "game" ? "🎮 ИГРА ГОТОВА — ЗАПУСТИТЬ?" : "✓ ПРОЕКТ ГОТОВ К СОЗДАНИЮ"}
             </div>
             <div style={{ color: "white", fontWeight: 700, fontSize: "14px", marginBottom: "2px" }}>
               {projectReady.title}
             </div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px", marginBottom: "12px" }}>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px", marginBottom: "8px" }}>
               {TYPE_LABELS[projectReady.type] || projectReady.type}
+              {projectReady.type === "game" && (
+                <span style={{ marginLeft: "8px", color: "#00f5ff" }}>
+                  · {detectGenre(projectReady.description) === "shooter" ? "🚀 Шутер" :
+                     detectGenre(projectReady.description) === "platformer" ? "🏃 Платформер" :
+                     detectGenre(projectReady.description) === "arcade" ? "🐍 Аркада" :
+                     detectGenre(projectReady.description) === "puzzle" ? "🔮 Головоломка" : "💨 Бегун"}
+                </span>
+              )}
             </div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "12px", lineHeight: "1.5", marginBottom: "12px" }}>
-              {projectReady.description}
+            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: "11px", lineHeight: "1.5", marginBottom: "12px" }}>
+              {projectReady.description.slice(0, 120)}{projectReady.description.length > 120 ? "..." : ""}
             </div>
-            {onProjectReady && (
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
                 onClick={handleProjectCreate}
                 style={{
-                  width: "100%",
-                  padding: "10px",
-                  background: "linear-gradient(135deg, #00f5ff, #7c3aed)",
-                  border: "none",
-                  borderRadius: "8px",
-                  color: "black",
-                  fontWeight: 700,
-                  fontSize: "13px",
-                  cursor: "pointer",
-                  fontFamily: "'Exo 2', Arial, sans-serif",
+                  flex: 1, padding: "10px",
+                  background: projectReady.type === "game"
+                    ? "linear-gradient(135deg, #00f5ff, #06b6d4)"
+                    : "linear-gradient(135deg, #00f5ff, #7c3aed)",
+                  border: "none", borderRadius: "8px",
+                  color: "#050810", fontWeight: 800, fontSize: "13px",
+                  cursor: "pointer", fontFamily: "'Exo 2', Arial, sans-serif",
                   letterSpacing: "0.05em",
                 }}
               >
-                СОЗДАТЬ ПРОЕКТ →
+                {projectReady.type === "game" ? "▶ ИГРАТЬ СЕЙЧАС" : "СОЗДАТЬ ПРОЕКТ →"}
               </button>
-            )}
+              {projectReady.type !== "game" && onProjectReady && (
+                <button
+                  onClick={() => { onProjectReady(projectReady); setProjectReady(null); }}
+                  style={{
+                    padding: "10px 14px", background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px",
+                    color: "rgba(255,255,255,0.5)", fontSize: "11px",
+                    cursor: "pointer", fontFamily: "'Exo 2', Arial, sans-serif",
+                  }}
+                >
+                  В генератор
+                </button>
+              )}
+            </div>
           </div>
         )}
 

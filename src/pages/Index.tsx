@@ -7,12 +7,14 @@ import CodeEditor from "@/components/CodeEditor";
 import LanguageCourse from "@/components/LanguageCourse";
 import AiAssistant from "@/components/AiAssistant";
 import SimonaKnowledge from "@/components/SimonaKnowledge";
+import GameShowcase from "@/components/GameShowcase";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная" },
   { id: "generator", label: "Генератор" },
   { id: "demo", label: "Демо" },
   { id: "portfolio", label: "Портфолио" },
+  { id: "projects", label: "🎮 Проекты" },
   { id: "simona", label: "🧠 Симона" },
   { id: "docs", label: "Документация" },
   { id: "community", label: "Сообщество" },
@@ -1215,6 +1217,9 @@ export default function Index() {
           </div>
         </div>
       </section>
+
+      {/* ═══ ПРОЕКТЫ — ИГРАБЕЛЬНЫЕ ДЕМО ═══ */}
+      <GameShowcase />
 
       {/* ═══ СИМОНА — БАЗА ЗНАНИЙ ═══ */}
       <section id="simona" className="py-24 px-4 relative">
