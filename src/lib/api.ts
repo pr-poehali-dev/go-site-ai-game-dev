@@ -107,6 +107,10 @@ export const api = {
     return call(URLS.projects, { action: "update", project_id, ...fields });
   },
 
+  async deleteProject(project_id: number) {
+    return call(URLS.projects, { action: "delete", project_id });
+  },
+
   async getPortfolio() {
     const data = await call(URLS.projects, { action: "portfolio" });
     return data.projects || [];

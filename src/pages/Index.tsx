@@ -220,6 +220,7 @@ export default function Index() {
   const [creatingProject, setCreatingProject] = useState(false);
   const [openProject, setOpenProject] = useState<typeof userProjects[0] | null>(null);
   const [codeEditorProject, setCodeEditorProject] = useState<typeof userProjects[0] | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
 
   // Языки — активный для обучения
   const [activeLanguage, setActiveLanguage] = useState<string | null>(null);
@@ -1634,7 +1635,7 @@ export default function Index() {
       {openProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(5,8,15,0.92)", backdropFilter: "blur(8px)" }}
-          onClick={() => setOpenProject(null)}>
+          onClick={() => { setOpenProject(null); setDeletingProjectId(null); }}>
           <div className="w-full max-w-lg rounded-2xl border overflow-hidden"
             style={{ background: "#0a0d16", borderColor: "rgba(255,107,0,0.3)", boxShadow: "0 0 60px rgba(255,107,0,0.1)" }}
             onClick={e => e.stopPropagation()}>
@@ -1646,7 +1647,7 @@ export default function Index() {
                 <div className="font-mono text-xs mb-1 tracking-widest" style={{ color: "#ff6b00" }}>// PROJECT_EDITOR</div>
                 <h3 className="font-orbitron font-black text-lg text-white">{openProject.title}</h3>
               </div>
-              <button onClick={() => setOpenProject(null)} className="text-white/30 hover:text-white transition-colors">
+              <button onClick={() => { setOpenProject(null); setDeletingProjectId(null); }} className="text-white/30 hover:text-white transition-colors">
                 <Icon name="X" size={20} />
               </button>
             </div>
@@ -1713,7 +1714,42 @@ export default function Index() {
                   <Icon name="Play" size={16} />
                   ▶ ИГРАТЬ СЕЙЧАС
                 </button>
+                <button
+                  onClick={() => setDeletingProjectId(openProject.id)}
+                  className="py-3 px-4 rounded-xl font-orbitron font-bold text-xs flex items-center justify-center gap-1.5 transition-all hover:opacity-80"
+                  style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "rgba(239,68,68,0.7)" }}>
+                  <Icon name="Trash2" size={14} />
+                </button>
               </div>
+
+              {/* Подтверждение удаления */}
+              {deletingProjectId === openProject.id && (
+                <div className="rounded-xl p-4 border" style={{ background: "rgba(239,68,68,0.07)", borderColor: "rgba(239,68,68,0.3)" }}>
+                  <div className="text-sm font-bold mb-3" style={{ color: "#ef4444" }}>
+                    Удалить «{openProject.title}»?
+                  </div>
+                  <p className="text-xs text-white/40 mb-4">Это действие нельзя отменить — проект будет удалён навсегда.</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        await api.deleteProject(openProject.id);
+                        setDeletingProjectId(null);
+                        setOpenProject(null);
+                        loadProjects();
+                      }}
+                      className="flex-1 py-2 rounded-lg font-orbitron font-bold text-xs flex items-center justify-center gap-1.5"
+                      style={{ background: "rgba(239,68,68,0.2)", border: "1px solid rgba(239,68,68,0.5)", color: "#ef4444" }}>
+                      <Icon name="Trash2" size={12} /> Да, удалить
+                    </button>
+                    <button
+                      onClick={() => setDeletingProjectId(null)}
+                      className="flex-1 py-2 rounded-lg font-orbitron font-bold text-xs"
+                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

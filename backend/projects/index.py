@@ -1,6 +1,6 @@
 """
 CRUD для игровых проектов пользователя.
-action: list | create | update | portfolio
+action: list | create | update | delete | portfolio
 """
 import json
 import os
@@ -161,5 +161,31 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
 
+    # --- УДАЛИТЬ ПРОЕКТ ---
+    if action == 'delete':
+        user = get_user(cur, token)
+        if not user:
+            conn.close()
+            return {'statusCode': 401, 'headers': CORS, 'body': json.dumps({'error': 'Не авторизован'})}
+
+        project_id = body.get('project_id')
+        if not project_id:
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Нужен project_id'})}
+
+        user_id = user[0]
+        # Удаляем только свой проект
+        cur.execute(
+            f"DELETE FROM {SCHEMA}.game_projects WHERE id = %s AND user_id = %s RETURNING id",
+            (project_id, user_id)
+        )
+        deleted = cur.fetchone()
+        conn.commit()
+        conn.close()
+
+        if not deleted:
+            return {'statusCode': 404, 'headers': CORS, 'body': json.dumps({'error': 'Проект не найден'})}
+        return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True, 'deleted_id': project_id})}
+
     conn.close()
-    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Укажите action: list | create | update | portfolio'})}
+    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Укажите action: list | create | update | delete | portfolio'})}
